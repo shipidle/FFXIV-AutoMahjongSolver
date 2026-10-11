@@ -16,7 +16,7 @@ public sealed class DomanRuleSet : IRuleSet
     public IDoraRule DoraRule => riichi.DoraRule;
     public IFuRule FuRule => riichi.FuRule;
 
-    public bool AllowsRedDora => false;
+    public bool AllowsRedDora => true;
     public bool AllowsKuitan => true;
     public int MinHan => 1;
     public int KazoeThreshold => ScoringConstants.KazoeYakumanHan;
