@@ -291,7 +291,31 @@ public sealed class AddonEmjReader : IDisposable
             raw[i] = *(int*)(basePtr + ActiveLayout.Offsets.HandArrayStart + i * 4);
         // Resolve off the same array the read path uses so a tile-ID shift clicks the right slot (issue #52).
         int eff = Variants.HandArrayDecoder.ResolveTextureBase(raw, ActiveLayout.TileTextureBase, out _);
-        return Variants.HandArrayDecoder.FindAddonSlot(raw, eff, target.Id);
+        return Variants.HandArrayDecoder.FindAddonSlotPreservingAkadora(raw, eff, target.Id);
+    }
+
+    /// <summary>
+    /// Index in the compressed hand list for the preferred physical copy of
+    /// <paramref name="target"/>. For 5s, a normal copy is preferred over aka dora.
+    /// </summary>
+    public unsafe int FindHandIndexOfTile(Mahjong.Core.Tile target)
+    {
+        if (ActiveLayout is null)
+            return -1;
+        if (!addon.TryGet(out var unit, out _))
+            return -1;
+        if (!unit->IsVisible)
+            return -1;
+
+        int len = ActiveLayout.Limits.HandSize;
+        Span<int> raw = stackalloc int[len];
+        byte* basePtr = (byte*)unit;
+        for (int i = 0; i < len; i++)
+            raw[i] = *(int*)(basePtr + ActiveLayout.Offsets.HandArrayStart + i * 4);
+
+        int eff = Variants.HandArrayDecoder.ResolveTextureBase(raw, ActiveLayout.TileTextureBase, out _);
+        int addonSlot = Variants.HandArrayDecoder.FindAddonSlotPreservingAkadora(raw, eff, target.Id);
+        return Variants.HandArrayDecoder.HandIndexForAddonSlot(raw, eff, addonSlot);
     }
 
     public unsafe StateSnapshot? TryBuildSnapshot()
