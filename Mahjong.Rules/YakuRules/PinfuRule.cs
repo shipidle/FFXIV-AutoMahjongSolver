@@ -41,6 +41,8 @@ public sealed class PinfuRule : IYakuRule
         var pair = d.Pair.First;
         if (pair.IsDragon)
             return true;
+        if (!ctx.WindInfoKnown)
+            return false;
         if (pair.Id == ctx.RoundWindTileId)
             return true;
         if (pair.Id == ctx.SeatWindTileId)
