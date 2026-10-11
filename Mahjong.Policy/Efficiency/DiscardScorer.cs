@@ -31,12 +31,11 @@ public static class DiscardScorer
 
             double dealInCost = opponentModel?.ExpectedDealInCost(u.Discard.Id) ?? 0.0;
 
-            // Doman 2-han min: graduated penalty for tenpai below the legal floor. Full penalty
-            // at 0 han, linearly fading to zero at 2 projected han. Reads TargetHan instead of
-            // hard-coding the old 0.5 cutoff so the threshold tracks the yaku-projection scale.
+            // Doman requires at least one yaku. Penalize tenpai shapes whose projected
+            // yaku value is still below 1 han, rather than the old (incorrect) 2-han floor.
             double projectedHan = yakuPotential * YakuPotential.TargetHan;
-            double yakulessPenalty = u.ShantenAfter == 0 && projectedHan < 2.0
-                ? w.YakulessTenpaiPenalty * (2.0 - projectedHan) / 2.0
+            double yakulessPenalty = u.ShantenAfter == 0 && projectedHan < 1.0
+                ? w.YakulessTenpaiPenalty * (1.0 - projectedHan)
                 : 0.0;
 
             double score =
