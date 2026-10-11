@@ -41,6 +41,9 @@ public sealed record Configuration : IPluginConfiguration
 
     public bool ShowSafetyHud { get; init; } = true;
 
+    /// <summary>Must match FFXIV's Mahjong Display Settings > Dora Indicator Setting.</summary>
+    public DoraIndicatorDisplayMode DoraIndicatorDisplayMode { get; init; } = DoraIndicatorDisplayMode.Doman;
+
     /// <summary>Sticky once the user accepts the first-arming auto-play warning.</summary>
     public bool AutoPlayConfirmed { get; init; } = false;
 
@@ -68,6 +71,12 @@ public enum AdviceMode
     Beginner = 0,
     Standard = 1,
     Detailed = 2,
+}
+
+public enum DoraIndicatorDisplayMode
+{
+    Doman = 0,
+    Traditional = 1,
 }
 
 /// <summary>Init-only property record (not positional) so Newtonsoft.Json round-trips it cleanly.</summary>
