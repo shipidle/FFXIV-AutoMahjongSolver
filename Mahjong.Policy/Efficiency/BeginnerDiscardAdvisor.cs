@@ -105,6 +105,75 @@ public static class BeginnerDiscardAdvisor
         return best;
     }
 
+    /// <summary>
+    /// Builds beginner-friendly analysis for an already chosen discard.
+    /// This does NOT choose a move; the production policy remains authoritative.
+    /// </summary>
+    public static BeginnerDiscardRecommendation? AnalyzeDiscard(
+        StateSnapshot state,
+        Tile discard,
+        IReadOnlySet<int>? closedRedFiveTileIds = null,
+        IDoraRule? doraRule = null)
+    {
+        doraRule ??= new StandardDoraRule();
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (!state.Legal.Can(ActionFlags.Discard))
+            return null;
+
+        var hand = Hand.FromTiles(state.Hand, state.OurMelds);
+        if (hand.TotalShantenTileCount != 14)
+            return null;
+
+        var wall = BuildVisibleWall(state);
+        var entries = UkeireEnumerator.Enumerate(hand, wall);
+        UkeireEntry? match = null;
+        foreach (var entry in entries)
+        {
+            if (entry.Discard.Id == discard.Id)
+            {
+                match = entry;
+                break;
+            }
+        }
+        if (match is null)
+            return null;
+
+        var e = match.Value;
+        var value = DiscardScorer.Score(state, wall: wall, doraRule: doraRule)
+            .FirstOrDefault(x => x.Discard.Id == discard.Id);
+
+        var (safety, safetyReason) = EvaluateSafety(state, discard, wall);
+
+        int closedCopies = 0;
+        foreach (var t in state.Hand)
+            if (t.Id == discard.Id)
+                closedCopies++;
+
+        bool losesAkaDora =
+            closedCopies == 1 &&
+            closedRedFiveTileIds?.Contains(discard.Id) == true;
+        int akaRetained = Math.Max(0, state.AkaDora - (losesAkaDora ? 1 : 0));
+
+        int bestReachableShanten = entries.Min(x => x.ShantenAfter);
+        bool defenseMode = HasRiichiThreat(state) && bestReachableShanten >= 3;
+        bool deadTenpai = IsDeadOpenTenpai(state, hand, e, wall);
+
+        return new BeginnerDiscardRecommendation(
+            Discard: discard,
+            ShantenAfter: e.ShantenAfter,
+            AcceptedKinds: e.AcceptedKinds,
+            LiveUkeire: e.WeightedCount,
+            YakuPotential: value.YakuPotential,
+            DoraRetained: value.DoraRetained,
+            AkaDoraRetained: akaRetained,
+            YakuhaiRetained: value.YakuhaiRetained,
+            DeadTenpai: deadTenpai,
+            Safety: safety,
+            SafetyReason: safetyReason,
+            DefenseMode: defenseMode);
+    }
+
     private static bool IsBetter(
         BeginnerDiscardRecommendation a,
         BeginnerDiscardRecommendation b,
