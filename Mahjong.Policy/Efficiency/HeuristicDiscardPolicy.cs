@@ -1,4 +1,6 @@
 using Mahjong.Engine;
+using Mahjong.Rules;
+using Mahjong.Rules.Scoring;
 
 namespace Mahjong.Policy.Efficiency;
 
@@ -11,11 +13,13 @@ public sealed class HeuristicDiscardPolicy : IDiscardPolicy
     private readonly IWeightProvider weightProvider;
     private readonly IOpponentModel opponentModel;
     private readonly IPlacementPolicy placementPolicy;
+    private readonly IDoraRule doraRule;
 
     public HeuristicDiscardPolicy(
         IWeightProvider weightProvider,
         IOpponentModel opponentModel,
-        IPlacementPolicy placementPolicy)
+        IPlacementPolicy placementPolicy,
+        IDoraRule? doraRule = null)
     {
         ArgumentNullException.ThrowIfNull(weightProvider);
         ArgumentNullException.ThrowIfNull(opponentModel);
@@ -23,6 +27,7 @@ public sealed class HeuristicDiscardPolicy : IDiscardPolicy
         this.weightProvider = weightProvider;
         this.opponentModel = opponentModel;
         this.placementPolicy = placementPolicy;
+        this.doraRule = doraRule ?? new StandardDoraRule();
     }
 
     public ScoredDiscard[] Score(StateSnapshot state)
@@ -33,6 +38,7 @@ public sealed class HeuristicDiscardPolicy : IDiscardPolicy
             state,
             weights: bundle.Discard,
             placement: multipliers,
-            opponentModel: opponentModel);
+            opponentModel: opponentModel,
+            doraRule: doraRule);
     }
 }
