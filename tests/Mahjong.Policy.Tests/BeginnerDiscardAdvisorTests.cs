@@ -22,6 +22,55 @@ public class BeginnerDiscardAdvisorTests
     }
 
     [Fact]
+    public void Random_closed_hands_never_choose_worse_shanten_or_ukeire()
+    {
+        var rng = new Random(20261011);
+
+        for (int sample = 0; sample < 500; sample++)
+        {
+            var counts = new int[Tile.Count34];
+            var tiles = new List<Tile>(14);
+            while (tiles.Count < 14)
+            {
+                int id = rng.Next(Tile.Count34);
+                if (counts[id] >= Tile.CopiesPerKind)
+                    continue;
+                counts[id]++;
+                tiles.Add(Tile.FromId(id));
+            }
+
+            var state = StateSnapshot.Empty with
+            {
+                Hand = tiles,
+                Legal = new LegalActions(
+                    ActionFlags.Discard,
+                    [],
+                    [],
+                    [],
+                    []),
+            };
+
+            var rec = BeginnerDiscardAdvisor.Recommend(state);
+            if (rec is null)
+                continue;
+
+            var hand = Hand.FromTiles(state.Hand, state.OurMelds);
+            var wall = BeginnerDiscardAdvisor.BuildVisibleWall(state);
+            var entries = UkeireEnumerator.Enumerate(hand, wall);
+            if (entries.Length == 0)
+                continue;
+
+            int bestShanten = entries.Min(x => x.ShantenAfter);
+            int bestUkeire = entries
+                .Where(x => x.ShantenAfter == bestShanten)
+                .Max(x => x.WeightedCount);
+
+            Assert.Equal(bestShanten, rec.ShantenAfter);
+            Assert.Equal(bestUkeire, rec.LiveUkeire);
+        }
+    }
+
+    [Fact]
     public void Far_hand_against_riichi_switches_to_defense_mode()
     {
         var s = Snapshots.Closed14("147m258p369s12345z");
