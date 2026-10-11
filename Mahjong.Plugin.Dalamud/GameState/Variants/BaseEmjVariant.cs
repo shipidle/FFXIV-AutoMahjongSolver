@@ -137,10 +137,12 @@ internal sealed class BaseEmjVariant : IEmjVariant
             WallRemaining = wallRemaining,
             DoraIndicators = doraIndicators,
             Legal = legal,
-            // Solo Doman is tonpuusen — pin to East-seat East-round; seat wind ends up wrong for hands 2-4 but round wind stays correct.
+            // Seat/round-wind memory is not mapped yet. Keep the relative self index at 0
+            // for score/discard arrays, but do not let policy/scoring treat East as a confirmed
+            // value wind on every hand.
             OurSeat = 0,
             RoundWind = 0,
-            SeatInfoKnown = true,
+            SeatInfoKnown = false,
             AkaDora = totalAkadora,
             AddonStateCode = stateCode,
         };
