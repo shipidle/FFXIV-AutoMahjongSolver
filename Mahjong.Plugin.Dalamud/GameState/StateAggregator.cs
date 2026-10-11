@@ -116,7 +116,7 @@ public sealed class StateAggregator : IDisposable
             { LastScorerError = ex.Message; }
 
             try
-            { LastBeginner = BeginnerDiscardAdvisor.Recommend(snap); }
+            { LastBeginner = BeginnerDiscardAdvisor.Recommend(snap, reader.GetClosedRedFiveTileIds()); }
             catch { }
         }
 
