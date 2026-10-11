@@ -283,7 +283,7 @@ public sealed class MainWindow : Window, IDisposable
                 cfg.AdviceMode == AdviceMode.Beginner ? plugin.Aggregator.LastBeginner : null;
             string? scorerError = plugin.Aggregator.LastScorerError;
 
-            Tile? highlightTile = beginner?.Discard ?? choice?.DiscardTile;
+            Tile? highlightTile = choice?.DiscardTile;
             int highlightSlot = highlightTile is { } t
                 ? plugin.AddonReader.FindHandIndexOfTile(t)
                 : -1;
