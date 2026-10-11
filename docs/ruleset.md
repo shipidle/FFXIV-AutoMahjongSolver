@@ -158,8 +158,8 @@ These are confirmed by the addon dump or in-game UI text:
   Tanyao, Yakuhai, Toitoi, Honitsu, Chinitsu, Kokushi, Suuankou, Daisangen,
   Shousuushii, Daisuushii, Tsuuiisou, Chinroutou, Ryuuiisou, ChuurenPoutou, Suukantsu,
   Tenhou, Chihou. Doman uses the same Japanese names.
-- **Two-han minimum:** Doman scoring tooltips reference a minimum of **2 han to win**.
-  This differs from standard riichi (1 han minimum). **TODO verify.**
+- **One-yaku minimum:** official FFXIV documentation lists 1-han winning hands and states
+  that a winning hand must contain at least one yaku. A single 1-han yaku is sufficient.
 - **Round structure:** East round only by default in casual play; East+South in
   ranked. **TODO confirm whether East-only is the only mode the plugin needs to
   support.**
@@ -170,7 +170,7 @@ Each of these resolves a specific `IRuleSet` configuration knob.
 
 | # | Question | Why it matters | How to verify |
 |---|----------|----------------|---------------|
-| Q1 | Is the minimum-han threshold 1 or 2? | Affects `IScoringRule.MinHan`; affects whether yaku-less tsumo is a no-yaku abort. | Score a hand worth exactly 1 han (e.g. tanyao only) at a Doman table; check if the win is allowed. |
+| Q1 | **Resolved: 1 han / one yaku.** | Affects `IScoringRule.MinHan`. | Official FFXIV guide lists 1-han wins and requires at least one yaku. |
 | Q2 | Does open tanyao (`kuitan`) count? | One-line difference in `TanyaoRule`. | Open a tanyao hand by calling chi/pon and confirm the yaku still appears in the win screen. |
 | Q3 | Is double riichi recognized? | Toggles `DoubleRiichiRule`. | Declare riichi on the first uninterrupted turn; check yaku list. |
 | Q4 | Is ippatsu recognized? | Toggles `IppatsuRule`. | Already known yes from UI strings, but confirm interaction with calls (call should void ippatsu). |
@@ -184,9 +184,8 @@ Each of these resolves a specific `IRuleSet` configuration knob.
 | Q12 | Starting points / oka / uma? | Affects `IPlacementPolicy` calibration, not the engine directly. | Read in-game settings; record the score-table layout. |
 | Q13 | Honba and riichi-stick handling? | Affects `IScoringRule.Pay` final payment. | Win after multiple honba and observe the bonus. |
 
-**Until Q1-Q11 are answered**, `DomanRuleSet` ships in Phase 2 as a copy of `RiichiRuleSet`
-with **2-han minimum** as the only divergence (Q1 is the highest-confidence Doman delta).
-Each subsequent answer is one rule swap, not a re-architecture.
+Q1 is resolved: `DomanRuleSet.MinHan = 1`. The remaining Doman-specific questions can
+still be resolved as individual rule swaps rather than a re-architecture.
 
 ### 2.3 Doman rules `Mahjong.Replay` must NOT use
 
@@ -216,7 +215,7 @@ public interface IRuleSet
     FuConfiguration           FuConfig { get; }
     bool   AllowsRedDora { get; }
     bool   AllowsKuitan  { get; }
-    int    MinHan        { get; }                          // 1 for Riichi, likely 2 for Doman (Q1)
+    int    MinHan        { get; }                          // 1 for Riichi and Doman
     int    KazoeThreshold { get; }                         // 13 for Riichi
     int    MaxYakuman    { get; }                          // 2 for Riichi (e.g. suuankou-tanki)
 }
@@ -244,8 +243,8 @@ public interface IDoraRule    { Tile     Next(Tile indicator); int CountReds(IRe
 - `RiichiRuleSet` — drop-in replacement for current `Engine/YakuDetector.cs` behavior.
   Tenhou parser uses this. All 140 existing Engine tests must stay green when run
   through `RiichiRuleSet`.
-- `DomanRuleSet` — initially identical to `RiichiRuleSet` except `MinHan = 2`. As Q2-Q13
-  resolve, individual rules swap.
+- `DomanRuleSet` — currently uses `MinHan = 1`; as the remaining Doman-specific questions
+  resolve, individual rules can swap.
 - One `IYakuRule` implementation per yaku — ~28 normal + 12 yakuman = 40 rule files.
   Each file is < 50 lines, testable in isolation.
 
