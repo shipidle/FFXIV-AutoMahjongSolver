@@ -109,6 +109,41 @@ public class HandArrayDecoderTests
     }
 
     [Fact]
+    public void FindAddonSlotPreservingAkadora_prefers_normal_five_over_red_draw()
+    {
+        var raw = new int[14];
+        raw[2] = EmjTextureBase + 4;      // normal 5m
+        raw[13] = EmjTextureBase + 34;    // red 5m, drawn tile
+
+        int slot = HandArrayDecoder.FindAddonSlotPreservingAkadora(
+            raw, EmjTextureBase, targetTileId: 4);
+
+        Assert.Equal(2, slot);
+    }
+
+    [Fact]
+    public void FindAddonSlotPreservingAkadora_uses_red_five_when_no_normal_copy_exists()
+    {
+        var raw = new int[14];
+        raw[13] = EmjTextureBase + 34;
+
+        int slot = HandArrayDecoder.FindAddonSlotPreservingAkadora(
+            raw, EmjTextureBase, targetTileId: 4);
+
+        Assert.Equal(13, slot);
+    }
+
+    [Fact]
+    public void HandIndexForAddonSlot_compresses_sparse_post_call_layout()
+    {
+        var raw = PostPonGapRaw();
+        int handIndex = HandArrayDecoder.HandIndexForAddonSlot(
+            raw, EmjTextureBase, addonSlot: 13);
+
+        Assert.Equal(10, handIndex);
+    }
+
+    [Fact]
     public void FindAddonSlot_decodes_akadora_alias_to_canonical_id()
     {
         // Slot 5 holds the 5m-red alias (textureBase + 34); FindAddonSlot for canonical id=4 must locate it.
