@@ -47,6 +47,7 @@ public class BuildSnapshotFromMemoryTests
         Assert.Equal(70, snap.WallRemaining);
         Assert.Equal(0, snap.AkaDora);
         Assert.Empty(snap.OurMelds);
+        Assert.False(snap.SeatInfoKnown);
     }
 
     [Fact]
