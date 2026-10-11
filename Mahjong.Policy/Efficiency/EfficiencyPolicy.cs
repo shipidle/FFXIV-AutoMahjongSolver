@@ -199,7 +199,8 @@ public sealed class EfficiencyPolicy : IPolicy
             DoraIndicators: state.DoraIndicators,
             UraDoraIndicators: state.UraDoraIndicators,
             IsDealer: state.OurSeat == state.DealerSeat,
-            AkaDora: state.AkaDora);
+            AkaDora: state.AkaDora,
+            WindInfoKnown: state.SeatInfoKnown);
 
         var result = scorer.Evaluate(hand, ctx);
         if (result is null)
