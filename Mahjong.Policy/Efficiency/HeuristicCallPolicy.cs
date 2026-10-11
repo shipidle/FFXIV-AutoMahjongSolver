@@ -107,7 +107,8 @@ public sealed class HeuristicCallPolicy : ICallPolicy
         }
         foreach (var t in candidate.HandTiles)
             counts[t.Id]--;
-        int shantenAfter = ComputeShanten(counts, currentMelds + 1);
+        int meldDelta = candidate.Kind == MeldKind.ShouMinKan ? 0 : 1;
+        int shantenAfter = ComputeShanten(counts, currentMelds + meldDelta);
         foreach (var t in candidate.HandTiles)
             counts[t.Id]++;
         return shantenAfter;
@@ -143,8 +144,22 @@ public sealed class HeuristicCallPolicy : ICallPolicy
     private static int ReachableYakuhaiHan(int[] counts, StateSnapshot state, MeldCandidate thisCall)
     {
         int han = 0;
-        if (thisCall.Kind == MeldKind.Pon && IsYakuhaiTile(thisCall.ClaimedTile, state))
+
+        // Already-open yakuhai is a guaranteed yaku path for every later call.
+        foreach (var meld in state.OurMelds)
+        {
+            if (meld.Kind == MeldKind.Chi || meld.Tiles.Length == 0)
+                continue;
+            if (IsYakuhaiTile(meld.Tiles[0], state))
+                han++;
+        }
+
+        // New pon/min-kan/an-kan can itself establish yakuhai. ShouMinKan upgrades an
+        // existing pon already counted above, so do not double-count it.
+        if (thisCall.Kind is MeldKind.Pon or MeldKind.MinKan or MeldKind.AnKan
+            && IsYakuhaiTile(thisCall.ClaimedTile, state))
             han++;
+
         for (int id = TileIds.FirstDragon; id <= TileIds.LastDragon; id++)
             if (counts[id] >= 2)
                 han++;
@@ -163,11 +178,19 @@ public sealed class HeuristicCallPolicy : ICallPolicy
             if (Tile.FromId(id).IsTerminalOrHonor)
                 return false;
         }
+
         foreach (var m in state.OurMelds)
             foreach (var t in m.Tiles)
                 if (t.IsTerminalOrHonor)
                     return false;
-        return thisCall.ClaimedTile.IsSimple;
+
+        if (!thisCall.ClaimedTile.IsSimple)
+            return false;
+        foreach (var t in thisCall.HandTiles)
+            if (!t.IsSimple)
+                return false;
+
+        return true;
     }
 
     private static bool HasReachableSuitFlush(
@@ -223,6 +246,12 @@ public sealed class HeuristicCallPolicy : ICallPolicy
             if (m.Kind is MeldKind.Pon or MeldKind.MinKan or MeldKind.AnKan or MeldKind.ShouMinKan)
                 triplets++;
         }
+
+        // A new pon/min-kan/an-kan is another completed triplet/quad. ShouMinKan only
+        // upgrades a pon already counted in OurMelds.
+        if (thisCall.Kind is MeldKind.Pon or MeldKind.MinKan or MeldKind.AnKan)
+            triplets++;
+
         for (int id = 0; id < Tile.Count34; id++)
             if (counts[id] >= 3)
                 triplets++;
