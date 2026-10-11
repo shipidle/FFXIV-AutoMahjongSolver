@@ -92,7 +92,9 @@ public sealed class HandOverlay : IDisposable
             : choice?.DiscardTile;
         if (suggested is null)
             return;
-        int slot = InputDispatcher.FindSlotOfTile(suggested.Value, snap.Hand);
+        int slot = plugin.AddonReader.FindHandIndexOfTile(suggested.Value);
+        if (slot < 0)
+            slot = InputDispatcher.FindSlotOfTile(suggested.Value, snap.Hand);
         if (slot < 0 || slot >= rects.Count)
             return;
 
