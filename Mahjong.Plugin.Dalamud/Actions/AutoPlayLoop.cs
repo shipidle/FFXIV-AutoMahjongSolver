@@ -796,17 +796,11 @@ public sealed class AutoPlayLoop : IDisposable
             return;
         }
 
-        // Hand[^1] mirrors the slot-13-preferred decode order in HandArrayDecoder.ReadHand
-        // (scans 0..len-1, so the highest occupied slot ends up last). FindAddonSlotOfTile
-        // resolves it back to slot 13 when the tile sits there, otherwise to its actual slot.
+        // Recovery is intentionally a literal tsumogiri. Do not use the red-preserving
+        // duplicate lookup here: if the drawn tile is a red five, riichi/out-of-sync rules
+        // still require the physical drawn tile in addon slot 13 to be discarded.
         Tile drawn = snap.Hand[^1];
-        int slot = plugin.AddonReader.FindAddonSlotOfTile(drawn);
-        if (slot < 0)
-        {
-            LastActionDescription = $"oos-tsumogiri aborted: drawn tile {drawn} not in addon hand";
-            log.Warning($"[AutoPlayLoop] {LastActionDescription}");
-            return;
-        }
+        int slot = 13;
 
         var result = plugin.Dispatcher.DispatchDiscard(slot);
         LastActionDescription = $"oos-tsumogiri recovery {drawn} slot={slot} → {result}";
