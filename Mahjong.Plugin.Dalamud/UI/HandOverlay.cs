@@ -105,24 +105,30 @@ public sealed class HandOverlay : IDisposable
         else
         {
             int textureBase = HandArrayDecoder.ResolveTextureBase(raw, layout.TileTextureBase, out _);
-            bool detachedDraw = IsLastVisualTileDetached(rects);
-
-            // When a red and normal 5 of the same suit are integrated into the sorted row,
-            // their relative visual order is not exposed by the addon array. Do not guess.
-            if (!detachedDraw && HasMixedRedAndNormalFive(raw, textureBase, suggested.Value.Id))
+            if (!TryDetermineLastVisualTileDetached(rects, out bool detachedDraw))
             {
                 mappingConfident = false;
             }
-            else
-            {
-                slot = HandArrayDecoder.FindRenderedHandIndex(
-                    raw,
-                    textureBase,
-                    suggested.Value.Id,
-                    detachedDraw);
 
-                if (slot < 0 || slot >= rects.Count)
+            // When a red and normal 5 of the same suit are integrated into the sorted row,
+            // their relative visual order is not exposed by the addon array. Do not guess.
+            if (mappingConfident)
+            {
+                if (!detachedDraw && HasMixedRedAndNormalFive(raw, textureBase, suggested.Value.Id))
+                {
                     mappingConfident = false;
+                }
+                else
+                {
+                    slot = HandArrayDecoder.FindRenderedHandIndex(
+                        raw,
+                        textureBase,
+                        suggested.Value.Id,
+                        detachedDraw);
+
+                    if (slot < 0 || slot >= rects.Count)
+                        mappingConfident = false;
+                }
             }
         }
 
@@ -134,7 +140,8 @@ public sealed class HandOverlay : IDisposable
 
         var rect = rects[slot];
         rect.Pos += viewportOffset;
-        bool isDrawnTile = IsLastVisualTileDetached(rects) && slot == rects.Count - 1;
+        _ = TryDetermineLastVisualTileDetached(rects, out bool detachedForStyle);
+        bool isDrawnTile = detachedForStyle && slot == rects.Count - 1;
 
         var color = (isDrawnTile ? cfg.HighlightColorTsumogiri : cfg.HighlightColorDiscard).ToVector3();
         float intensity = Math.Clamp(cfg.HighlightIntensity, 0.4f, 1.6f);
@@ -306,8 +313,15 @@ public sealed class HandOverlay : IDisposable
     private static float CenterY((Vector2 Pos, Vector2 Size) rect)
         => rect.Pos.Y + rect.Size.Y * 0.5f;
 
-    internal static bool IsLastVisualTileDetached(List<(Vector2 Pos, Vector2 Size)> rects)
+    /// <summary>
+    /// Returns false only when the visual gap is genuinely ambiguous. In that case the
+    /// overlay must fall back to text rather than guess whether slot 13 is a detached draw.
+    /// </summary>
+    internal static bool TryDetermineLastVisualTileDetached(
+        List<(Vector2 Pos, Vector2 Size)> rects,
+        out bool detached)
     {
+        detached = false;
         if (rects.Count < 2)
             return false;
 
@@ -321,13 +335,30 @@ public sealed class HandOverlay : IDisposable
         float lastGap = gaps[^1];
         float medianWidth = Median(rects.ConvertAll(r => r.Size.X));
 
-        if (gaps.Count == 1)
-            return lastGap > Math.Max(8f, medianWidth * 0.18f);
+        float baseline = 0f;
+        if (gaps.Count > 1)
+        {
+            var baselineGaps = gaps.GetRange(0, gaps.Count - 1);
+            baseline = Median(baselineGaps);
+        }
 
-        var baselineGaps = gaps.GetRange(0, gaps.Count - 1);
-        float baseline = Median(baselineGaps);
-        float threshold = baseline + Math.Max(8f, medianWidth * 0.18f);
-        return lastGap > threshold;
+        float clearlyDetached = baseline + Math.Max(8f, medianWidth * 0.18f);
+        float clearlyIntegrated = baseline + Math.Max(3f, medianWidth * 0.07f);
+
+        if (lastGap >= clearlyDetached)
+        {
+            detached = true;
+            return true;
+        }
+
+        if (lastGap <= clearlyIntegrated)
+        {
+            detached = false;
+            return true;
+        }
+
+        // Between the two thresholds, geometry is too close to call safely.
+        return false;
     }
 
     private static float Median(List<float> values)
