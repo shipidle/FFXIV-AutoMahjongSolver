@@ -249,6 +249,41 @@ public class HeuristicCallPolicyTests
     }
 
     [Fact]
+    public void Declines_flush_path_when_existing_open_meld_breaks_the_suit()
+    {
+        var openPon = Meld.Pon(Tile.FromId(9), Tile.FromId(9), fromSeat: 1); // 1p pon
+        var s = StateSnapshot.Empty with
+        {
+            Hand = Tiles.Parse("12m345m667m9m1z"),
+            OurMelds = [openPon],
+            Seats =
+            [
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+            ],
+            Legal = new LegalActions(
+                Flags: ActionFlags.Chi | ActionFlags.Pass,
+                DiscardableTiles: [],
+                PonCandidates: [],
+                ChiCandidates:
+                [
+                    new MeldCandidate(
+                        MeldKind.Chi,
+                        Tile.FromId(2), // claim 3m with 1m2m
+                        [Tile.FromId(0), Tile.FromId(1)],
+                        FromSeat: 3)
+                ],
+                KanCandidates: []),
+        };
+
+        var d = new HeuristicCallPolicy(new DomanRuleSet()).Evaluate(s);
+
+        Assert.False(d.Accept);
+    }
+
+    [Fact]
     public void Accepts_chi_that_unlocks_ittsu()
     {
         // chi(123m claiming 1m) + closed 456m + 789m → post-call ittsu in m-suit is
