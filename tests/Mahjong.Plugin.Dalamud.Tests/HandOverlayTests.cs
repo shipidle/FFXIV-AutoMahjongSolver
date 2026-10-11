@@ -66,7 +66,22 @@ public class HandOverlayTests
             rects.Add(R(i * 42, 500));
         rects.Add(R(13 * 42 + 18, 500));
 
-        Assert.True(HandOverlay.IsLastVisualTileDetached(rects));
+        Assert.True(HandOverlay.TryDetermineLastVisualTileDetached(rects, out bool detached));
+        Assert.True(detached);
+    }
+
+    [Fact]
+    public void Ambiguous_last_gap_is_rejected_instead_of_guessed()
+    {
+        var rects = new List<(Vector2 Pos, Vector2 Size)>();
+        for (int i = 0; i < 10; i++)
+            rects.Add(R(i * 42, 500));
+
+        // Normal gaps are 2px. Last gap is 7px: larger, but not enough evidence for a
+        // detached draw at this tile width.
+        rects.Add(R(10 * 42 + 5, 500));
+
+        Assert.False(HandOverlay.TryDetermineLastVisualTileDetached(rects, out _));
     }
 
     [Fact]
@@ -76,6 +91,7 @@ public class HandOverlayTests
         for (int i = 0; i < 11; i++)
             rects.Add(R(i * 42, 500));
 
-        Assert.False(HandOverlay.IsLastVisualTileDetached(rects));
+        Assert.True(HandOverlay.TryDetermineLastVisualTileDetached(rects, out bool detached));
+        Assert.False(detached);
     }
 }
