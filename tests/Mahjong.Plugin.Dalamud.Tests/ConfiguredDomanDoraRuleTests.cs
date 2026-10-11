@@ -1,3 +1,4 @@
+using Mahjong.Core;
 using Mahjong.Plugin.Dalamud.Adapters;
 using Mahjong.Plugin.Dalamud.Composition;
 
