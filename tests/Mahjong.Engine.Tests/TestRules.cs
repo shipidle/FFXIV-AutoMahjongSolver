@@ -2,7 +2,7 @@ namespace Mahjong.Engine.Tests;
 
 internal static class TestRules
 {
-    public static readonly RiichiRuleSet RuleSet = new();
+    // Doman defaults to the standard (traditional) dora-cycle rule in engine tests,\n    // while also enabling aka dora. The live plugin injects its display-aware dora rule.\n    public static readonly DomanRuleSet RuleSet = new();
     public static readonly Scorer Scorer = new(RuleSet);
 
     public static int Fu(Decomposition d, WinContext ctx, IReadOnlyList<YakuHit>? yaku = null)
