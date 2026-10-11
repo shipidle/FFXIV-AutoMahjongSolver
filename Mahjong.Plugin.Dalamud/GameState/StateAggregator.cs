@@ -1,6 +1,8 @@
 using System;
 using Dalamud.Plugin.Services;
 using Mahjong.Policy.Efficiency;
+using Mahjong.Rules;
+using Mahjong.Rules.Scoring;
 
 namespace Mahjong.Plugin.Dalamud.GameState;
 
@@ -9,6 +11,7 @@ public sealed class StateAggregator : IDisposable
     private readonly AddonEmjReader reader;
     private readonly IFramework framework;
     private readonly IPolicy? policy;
+    private readonly IDoraRule doraRule;
     private bool disposed;
     private long lastRebuildTicks;
     private int lastContentHash;
@@ -31,13 +34,18 @@ public sealed class StateAggregator : IDisposable
 
     public event Action<StateSnapshot>? Changed;
 
-    public StateAggregator(AddonEmjReader reader, IFramework framework, IPolicy? policy = null)
+    public StateAggregator(
+        AddonEmjReader reader,
+        IFramework framework,
+        IPolicy? policy = null,
+        IDoraRule? doraRule = null)
     {
         ArgumentNullException.ThrowIfNull(reader);
         ArgumentNullException.ThrowIfNull(framework);
         this.reader = reader;
         this.framework = framework;
         this.policy = policy;
+        this.doraRule = doraRule ?? new StandardDoraRule();
 
         this.reader.ObservationChanged += OnObservationChanged;
         framework.Update += OnFrameworkUpdate;
@@ -111,12 +119,13 @@ public sealed class StateAggregator : IDisposable
         if (snap.Legal.Can(ActionFlags.Discard))
         {
             try
-            { LastScored = DiscardScorer.Score(snap); }
+            { LastScored = DiscardScorer.Score(snap, doraRule: doraRule); }
             catch (Exception ex)
             { LastScorerError = ex.Message; }
 
             try
-            { LastBeginner = BeginnerDiscardAdvisor.Recommend(snap, reader.GetClosedRedFiveTileIds()); }
+            { LastBeginner = BeginnerDiscardAdvisor.Recommend(
+                snap, reader.GetClosedRedFiveTileIds(), doraRule); }
             catch { }
         }
 
