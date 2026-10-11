@@ -1,4 +1,5 @@
 using Mahjong.Engine;
+using Mahjong.Rules.Rulesets;
 
 namespace Mahjong.Policy.Efficiency;
 
@@ -20,6 +21,7 @@ public sealed record BeginnerDiscardRecommendation(
     int DoraRetained,
     int AkaDoraRetained,
     int YakuhaiRetained,
+    bool DeadTenpai,
     BeginnerSafetyLevel Safety,
     string SafetyReason,
     bool DefenseMode);
@@ -32,6 +34,8 @@ public sealed record BeginnerDiscardRecommendation(
 /// </summary>
 public static class BeginnerDiscardAdvisor
 {
+    private static readonly Scorer DomanScorer = new(new DomanRuleSet());
+
     public static BeginnerDiscardRecommendation? Recommend(
         StateSnapshot state,
         IReadOnlySet<int>? closedRedFiveTileIds = null)
@@ -74,6 +78,7 @@ public static class BeginnerDiscardAdvisor
                 closedCopies == 1 &&
                 closedRedFiveTileIds?.Contains(e.Discard.Id) == true;
             int akaRetained = Math.Max(0, state.AkaDora - (losesAkaDora ? 1 : 0));
+            bool deadTenpai = IsDeadOpenTenpai(state, hand, e, wall);
 
             var candidate = new BeginnerDiscardRecommendation(
                 Discard: e.Discard,
@@ -84,6 +89,7 @@ public static class BeginnerDiscardAdvisor
                 DoraRetained: value.DoraRetained,
                 AkaDoraRetained: akaRetained,
                 YakuhaiRetained: value.YakuhaiRetained,
+                DeadTenpai: deadTenpai,
                 Safety: safety,
                 SafetyReason: safetyReason,
                 DefenseMode: defenseMode);
@@ -100,16 +106,21 @@ public static class BeginnerDiscardAdvisor
         BeginnerDiscardRecommendation b,
         bool defenseMode)
     {
+        int aEffectiveShanten = a.ShantenAfter + (a.DeadTenpai ? 1 : 0);
+        int bEffectiveShanten = b.ShantenAfter + (b.DeadTenpai ? 1 : 0);
+
         if (defenseMode)
         {
             int sa = SafetyRank(a.Safety);
             int sb = SafetyRank(b.Safety);
             if (sa != sb) return sa < sb;
-            if (a.ShantenAfter != b.ShantenAfter) return a.ShantenAfter < b.ShantenAfter;
+            if (aEffectiveShanten != bEffectiveShanten) return aEffectiveShanten < bEffectiveShanten;
+            if (a.DeadTenpai != b.DeadTenpai) return !a.DeadTenpai;
         }
         else
         {
-            if (a.ShantenAfter != b.ShantenAfter) return a.ShantenAfter < b.ShantenAfter;
+            if (aEffectiveShanten != bEffectiveShanten) return aEffectiveShanten < bEffectiveShanten;
+            if (a.DeadTenpai != b.DeadTenpai) return !a.DeadTenpai;
             if (a.LiveUkeire != b.LiveUkeire) return a.LiveUkeire > b.LiveUkeire;
             if (a.AcceptedKinds.Count != b.AcceptedKinds.Count) return a.AcceptedKinds.Count > b.AcceptedKinds.Count;
         }
@@ -129,6 +140,72 @@ public static class BeginnerDiscardAdvisor
         }
 
         return a.Discard.Id < b.Discard.Id;
+    }
+
+    private static bool IsDeadOpenTenpai(
+        StateSnapshot state,
+        Hand hand,
+        UkeireEntry entry,
+        Wall wall)
+    {
+        if (entry.ShantenAfter != 0)
+            return false;
+
+        bool isClosed = true;
+        foreach (var meld in state.OurMelds)
+        {
+            if (meld.Kind != MeldKind.AnKan)
+            {
+                isClosed = false;
+                break;
+            }
+        }
+
+        // Closed hands can always win by menzen tsumo and usually have riichi as a yaku route.
+        if (isClosed)
+            return false;
+
+        Hand afterDiscard;
+        try
+        {
+            afterDiscard = hand.WithTileRemoved(entry.Discard);
+        }
+        catch
+        {
+            return false;
+        }
+
+        foreach (var draw in entry.AcceptedKinds)
+        {
+            if (wall.LiveOf(draw) <= 0)
+                continue;
+
+            Hand completed;
+            try
+            {
+                completed = afterDiscard.WithTileAdded(draw);
+            }
+            catch
+            {
+                continue;
+            }
+
+            var ctx = new WinContext(
+                draw,
+                WinKind.Tsumo,
+                IsHaitei: state.WallRemaining == 0,
+                RoundWindTileId: TileIds.FirstWind + state.RoundWind,
+                SeatWindTileId: TileIds.FirstWind + state.OurSeat,
+                DoraIndicators: state.DoraIndicators,
+                IsDealer: state.OurSeat == state.DealerSeat,
+                AkaDora: state.AkaDora,
+                WindInfoKnown: state.SeatInfoKnown);
+
+            if (DomanScorer.Evaluate(completed, ctx) is not null)
+                return false;
+        }
+
+        return true;
     }
 
     private static int SafetyRank(BeginnerSafetyLevel level) => level switch
