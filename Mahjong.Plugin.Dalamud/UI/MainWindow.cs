@@ -273,18 +273,23 @@ public sealed class MainWindow : Window, IDisposable
                 return;
             }
 
+            var cfg = plugin.Configuration;
             ScoredDiscard[]? scored = plugin.Aggregator.LastScored;
             ActionChoice? choice = plugin.Aggregator.LastChoice;
+            BeginnerDiscardRecommendation? beginner =
+                cfg.AdviceMode == AdviceMode.Beginner ? plugin.Aggregator.LastBeginner : null;
             string? scorerError = plugin.Aggregator.LastScorerError;
-            int highlightSlot = -1;
-            if (choice?.DiscardTile is { } t)
-                highlightSlot = InputDispatcher.FindSlotOfTile(t, snap.Hand);
+
+            Tile? highlightTile = beginner?.Discard ?? choice?.DiscardTile;
+            int highlightSlot = highlightTile is { } t
+                ? InputDispatcher.FindSlotOfTile(t, snap.Hand)
+                : -1;
 
             DrawSeatRow(snap);
             ImGui.Dummy(new Vector2(0, 10));
             DrawHandRow(snap, highlightSlot);
             ImGui.Dummy(new Vector2(0, 10));
-            DrawSuggestion(snap, scored, choice, scorerError);
+            DrawSuggestion(snap, scored, choice, beginner, scorerError);
         }
     }
 
@@ -366,16 +371,47 @@ public sealed class MainWindow : Window, IDisposable
         StateSnapshot snap,
         ScoredDiscard[]? scored,
         ActionChoice? choice,
+        BeginnerDiscardRecommendation? beginner,
         string? scorerError)
     {
         var cfg = plugin.Configuration;
 
-        Theme.Caption("Best move");
+        Theme.Caption(cfg.AdviceMode == AdviceMode.Beginner ? "왕초보 추천" : "Best move");
         ImGui.Dummy(new Vector2(0, 3));
+
+        if (cfg.AdviceMode == AdviceMode.Beginner)
+        {
+            if (snap.Legal.Can(ActionFlags.Discard) && beginner is not null)
+            {
+                DrawBeginnerDiscard(beginner, cfg);
+            }
+            else if (choice is not null)
+            {
+                DrawBeginnerAction(snap, choice);
+            }
+            else
+            {
+                Theme.Subtle($"기다리는 중 ({snap.Hand.Count}장)");
+            }
+
+            DrawLastAutoAction();
+            return;
+        }
 
         if (!snap.Legal.Can(ActionFlags.Discard))
         {
-            Theme.Subtle($"Waiting for your turn ({snap.Hand.Count} tiles in hand).");
+            if (choice is not null)
+            {
+                ImGui.PushStyleColor(ImGuiCol.Text, Theme.Accent);
+                ImGui.TextUnformatted(FriendlyActionVerb(choice.Kind));
+                ImGui.PopStyleColor();
+                if (!string.IsNullOrWhiteSpace(choice.Reasoning))
+                    Theme.Subtle(choice.Reasoning);
+            }
+            else
+            {
+                Theme.Subtle($"Waiting for your turn ({snap.Hand.Count} tiles in hand).");
+            }
             return;
         }
 
@@ -427,30 +463,202 @@ public sealed class MainWindow : Window, IDisposable
         }
 
         if (cfg.ShowInGameHighlight)
-        {
             Theme.Subtle("The tile is outlined in the mahjong window.");
-        }
 
-        if (cfg.ShowSuggestionDetails)
+        if (cfg.AdviceMode == AdviceMode.Detailed || cfg.ShowSuggestionDetails)
         {
             ImGui.Dummy(new Vector2(0, 6));
             Theme.Subtle(
-                "shanten = turns away from ready.  ukeire = tiles that complete your wait — " +
-                "counted as distinct kinds and total copies remaining in the live wall.");
+                "shanten = turns away from ready.  ukeire = tiles that improve the hand — " +
+                "counted as distinct kinds and estimated live copies.");
             ImGui.Dummy(new Vector2(0, 4));
             int show = Math.Min(3, scored.Length);
             for (int i = 0; i < show; i++)
                 DrawScoredPickRow(i, scored[i]);
         }
 
-        if (plugin.AutoPlay.LastActionDescription != "(none)")
+        DrawLastAutoAction();
+    }
+
+    private void DrawBeginnerDiscard(BeginnerDiscardRecommendation rec, Configuration cfg)
+    {
+        float startY = ImGui.GetCursorPosY();
+        float bigH = Theme.BigTileH;
+        float textH = ImGui.CalcTextSize("X").Y;
+        float textY = startY + (bigH - textH) * 0.5f;
+
+        ImGui.SetCursorPosY(textY);
+        ImGui.PushStyleColor(ImGuiCol.Text, Theme.Accent);
+        ImGui.TextUnformatted("버리기");
+        ImGui.PopStyleColor();
+
+        ImGui.SameLine(0, 12);
+        ImGui.SetCursorPosY(startY);
+        Theme.DrawTile(rec.Discard, new Vector2(Theme.BigTileW, Theme.BigTileH), Theme.Pulse(1.4f, 0.55f, 1.0f));
+
+        ImGui.SameLine(0, 12);
+        ImGui.SetCursorPosY(textY);
+        ImGui.PushStyleColor(ImGuiCol.Text, Theme.Muted);
+        ImGui.TextUnformatted(BeginnerTileName(rec.Discard));
+        ImGui.PopStyleColor();
+
+        ImGui.SetCursorPosY(startY + bigH + 6);
+
+        if (rec.DefenseMode)
         {
-            ImGui.Dummy(new Vector2(0, 6));
-            ImGui.PushStyleColor(ImGuiCol.Text, Theme.Muted);
-            ImGui.TextWrapped($"Last action: {plugin.AutoPlay.LastActionDescription}");
+            ImGui.PushStyleColor(ImGuiCol.Text, Theme.Warn);
+            ImGui.TextWrapped("상대가 리치했고 아직 완성까지 멀어서, 이번에는 손을 빠르게 만드는 것보다 안전한 패를 먼저 버리는 쪽을 추천함.");
             ImGui.PopStyleColor();
         }
+        else
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, Theme.Body);
+            ImGui.TextWrapped(BeginnerProgressText(rec.ShantenAfter));
+            ImGui.PopStyleColor();
+
+            if (rec.AcceptedKinds.Count > 0)
+            {
+                string useful = string.Join(" / ", rec.AcceptedKinds.Take(8).Select(BeginnerTileName));
+                if (rec.AcceptedKinds.Count > 8)
+                    useful += " / …";
+                ImGui.TextWrapped($"다음에 들어오면 손이 좋아지는 패: {useful}");
+                Theme.Subtle($"현재 공개된 패를 제외한 기준으로 최대 약 {rec.LiveUkeire}장.");
+            }
+        }
+
+        if (cfg.ShowSafetyHud && rec.Safety != BeginnerSafetyLevel.NoThreat)
+        {
+            ImGui.Dummy(new Vector2(0, 4));
+            ImGui.PushStyleColor(ImGuiCol.Text, SafetyColor(rec.Safety));
+            ImGui.TextUnformatted($"수비 안전도: {SafetyLabel(rec.Safety)}");
+            ImGui.PopStyleColor();
+            Theme.Subtle(rec.SafetyReason);
+        }
+
+        if (rec.DoraRetained > 0 || rec.YakuhaiRetained > 0)
+        {
+            ImGui.Dummy(new Vector2(0, 3));
+            var kept = new List<string>(2);
+            if (rec.DoraRetained > 0) kept.Add($"도라 {rec.DoraRetained}장");
+            if (rec.YakuhaiRetained > 0) kept.Add($"역패 후보 {rec.YakuhaiRetained}장");
+            Theme.Subtle($"좋은 점: {string.Join(", ", kept)}을 손에 남김.");
+        }
+
+        if (cfg.ShowInGameHighlight)
+            Theme.Subtle("게임 손패에서 같은 패가 테두리로 표시됨.");
     }
+
+    private static void DrawBeginnerAction(StateSnapshot snap, ActionChoice choice)
+    {
+        string title;
+        string reason;
+
+        switch (choice.Kind)
+        {
+            case ActionKind.Tsumo:
+                title = "쯔모 ✅ 지금 화료";
+                reason = "완성된 손이고 역도 있으므로 바로 쯔모하면 됨.";
+                break;
+            case ActionKind.Ron:
+                title = "론 ✅ 지금 화료";
+                reason = "상대가 버린 패로 손이 완성됨. 바로 론하면 됨.";
+                break;
+            case ActionKind.Riichi:
+                title = "리치 ✅";
+                reason = "텐파이 상태이고 손을 아직 열지 않았음. 리치를 선언하면 리치 자체가 1판짜리 역이 됨.";
+                break;
+            case ActionKind.Pon:
+                title = "퐁 받기 ✅";
+                reason = "이 패를 받으면 완성까지 필요한 단계가 줄고, 받은 뒤에도 역을 만들 수 있는 길이 남아 있음.";
+                break;
+            case ActionKind.Chi:
+                title = "치 받기 ✅";
+                reason = "이 패를 받으면 완성까지 필요한 단계가 줄고, 받은 뒤에도 역을 만들 수 있는 길이 남아 있음.";
+                break;
+            case ActionKind.AnKan:
+            case ActionKind.MinKan:
+            case ActionKind.ShouMinKan:
+                title = "깡 받기 ✅";
+                reason = "현재 solver가 이 깡을 진행하는 편이 낫다고 판단함. 왕초보 모드에서는 깡은 보수적으로 참고하는 걸 권장함.";
+                break;
+            case ActionKind.Pass when HasCallOffer(snap.Legal):
+                title = "치/퐁/깡 넘기기 ❌";
+                reason = "받아도 손이 확실히 빨라지지 않거나, 받은 뒤 만들 수 있는 역이 불분명해서 넘기는 쪽이 나음.";
+                break;
+            default:
+                title = "기다리기";
+                reason = "지금은 직접 선택할 행동이 없음.";
+                break;
+        }
+
+        ImGui.PushStyleColor(ImGuiCol.Text, Theme.Accent);
+        ImGui.TextUnformatted(title);
+        ImGui.PopStyleColor();
+        ImGui.PushStyleColor(ImGuiCol.Text, Theme.Body);
+        ImGui.TextWrapped(reason);
+        ImGui.PopStyleColor();
+    }
+
+    private void DrawLastAutoAction()
+    {
+        if (plugin.AutoPlay.LastActionDescription == "(none)")
+            return;
+
+        ImGui.Dummy(new Vector2(0, 6));
+        ImGui.PushStyleColor(ImGuiCol.Text, Theme.Muted);
+        ImGui.TextWrapped($"Last action: {plugin.AutoPlay.LastActionDescription}");
+        ImGui.PopStyleColor();
+    }
+
+    private static bool HasCallOffer(LegalActions legal) =>
+        legal.Can(ActionFlags.Pon) || legal.Can(ActionFlags.Chi) ||
+        legal.Can(ActionFlags.MinKan) || legal.Can(ActionFlags.ShouMinKan) ||
+        legal.Can(ActionFlags.AnKan);
+
+    private static string BeginnerProgressText(int shanten) => shanten switch
+    {
+        < 0 => "이미 완성된 모양임.",
+        0 => "이 패를 버리면 텐파이. 이제 필요한 패 1장만 오면 화료할 수 있는 상태가 됨.",
+        1 => "이 패를 버리면 텐파이까지 손이 한 번만 더 좋아지면 됨.",
+        _ => $"이 패를 버린 뒤 텐파이까지 손이 약 {shanten}번 더 좋아져야 함.",
+    };
+
+    private static string BeginnerTileName(Tile tile) => tile.Suit switch
+    {
+        TileSuit.Man => $"{tile.Number}만",
+        TileSuit.Pin => $"{tile.Number}통",
+        TileSuit.Sou => $"{tile.Number}삭",
+        TileSuit.Honor => tile.HonorNumber switch
+        {
+            1 => "동",
+            2 => "남",
+            3 => "서",
+            4 => "북",
+            5 => "백",
+            6 => "발",
+            7 => "중",
+            _ => tile.ShortName,
+        },
+        _ => tile.ShortName,
+    };
+
+    private static string SafetyLabel(BeginnerSafetyLevel level) => level switch
+    {
+        BeginnerSafetyLevel.Safe => "매우 안전",
+        BeginnerSafetyLevel.Low => "비교적 안전",
+        BeginnerSafetyLevel.Medium => "보통",
+        BeginnerSafetyLevel.High => "위험",
+        _ => "-",
+    };
+
+    private static Vector4 SafetyColor(BeginnerSafetyLevel level) => level switch
+    {
+        BeginnerSafetyLevel.Safe => Theme.Accent,
+        BeginnerSafetyLevel.Low => Theme.Info,
+        BeginnerSafetyLevel.Medium => Theme.Warn,
+        BeginnerSafetyLevel.High => Theme.Danger,
+        _ => Theme.Muted,
+    };
 
     private static void DrawScoredPickRow(int rank, ScoredDiscard s)
     {
