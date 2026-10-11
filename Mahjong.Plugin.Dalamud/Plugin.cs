@@ -182,6 +182,7 @@ public sealed class Plugin : IDalamudPlugin
             AddonReader, SeatPoolRegistry, ErrorSink, configDir);
 
         Aggregator.Changed += _ => MemoryDumpRecorder.Record("state-change");
+        Aggregator.Changed += OnCoachComparison;
 
         // Bracket every FireCallback with (pre, post) memdumps. Both labels bypass the atk_count gate that gates "state-change".
         EventLogger.BeforeFireCallback += _ => MemoryDumpRecorder.Record("input-pre");
@@ -208,6 +209,37 @@ public sealed class Plugin : IDalamudPlugin
         Log.Information($"Doman Mahjong Solver v{asmVersion} loaded.");
     }
 
+    private void OnCoachComparison(StateSnapshot snap)
+    {
+        if (!snap.Legal.Can(ActionFlags.Discard))
+            return;
+
+        var beginner = Aggregator.LastBeginner;
+        var original = Aggregator.LastChoice;
+        if (beginner is null || original?.DiscardTile is not { } originalTile)
+            return;
+        if (beginner.Discard.Id == originalTile.Id)
+            return;
+
+        Log.Information(
+            $"[BeginnerCoach] differs: coach={beginner.Discard} " +
+            $"(shanten={beginner.ShantenAfter}, ukeire={beginner.LiveUkeire}, " +
+            $"safety={beginner.Safety}, defense={beginner.DefenseMode}) " +
+            $"original={originalTile} ({original.Reasoning})");
+
+        FindingsLog?.Record("coach_policy_diff", new Dictionary<string, object?>
+        {
+            ["coach_tile"] = beginner.Discard.ToString(),
+            ["coach_shanten"] = beginner.ShantenAfter,
+            ["coach_ukeire"] = beginner.LiveUkeire,
+            ["coach_safety"] = beginner.Safety.ToString(),
+            ["coach_defense"] = beginner.DefenseMode,
+            ["original_tile"] = originalTile.ToString(),
+            ["original_reasoning"] = original.Reasoning,
+            ["wall"] = snap.WallRemaining,
+        });
+    }
+
     private void OnMeldTrackerDeferralTimedOut(DeferralTimeoutEvent evt)
     {
         string removed = string.Join(",", evt.Removed.Select(t => t.ToString()));
@@ -225,6 +257,7 @@ public sealed class Plugin : IDalamudPlugin
     public void Dispose()
     {
         MeldTracker.DeferralTimedOut -= OnMeldTrackerDeferralTimedOut;
+        Aggregator.Changed -= OnCoachComparison;
         command.Dispose();
         PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
         PluginInterface.UiBuilder.OpenMainUi -= ToggleMainWindow;
