@@ -645,7 +645,9 @@ public sealed class AutoPlayLoop : IDisposable
         try
         {
             rec = BeginnerDiscardAdvisor.Recommend(
-                snap, plugin.AddonReader.GetClosedRedFiveTileIds());
+                snap,
+                plugin.AddonReader.GetClosedRedFiveTileIds(),
+                plugin.RuleSet.DoraRule);
         }
         catch (Exception ex)
         {
