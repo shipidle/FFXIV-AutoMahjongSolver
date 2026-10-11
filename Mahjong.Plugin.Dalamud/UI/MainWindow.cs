@@ -551,11 +551,12 @@ public sealed class MainWindow : Window, IDisposable
             Theme.Subtle(rec.SafetyReason);
         }
 
-        if (rec.DoraRetained > 0 || rec.YakuhaiRetained > 0)
+        if (rec.DoraRetained > 0 || rec.AkaDoraRetained > 0 || rec.YakuhaiRetained > 0)
         {
             ImGui.Dummy(new Vector2(0, 3));
             var kept = new List<string>(2);
             if (rec.DoraRetained > 0) kept.Add($"도라 {rec.DoraRetained}장");
+            if (rec.AkaDoraRetained > 0) kept.Add($"빨간 도라 {rec.AkaDoraRetained}장");
             if (rec.YakuhaiRetained > 0) kept.Add($"역패 후보 {rec.YakuhaiRetained}장");
             Theme.Subtle($"좋은 점: {string.Join(", ", kept)}을 손에 남김.");
         }
