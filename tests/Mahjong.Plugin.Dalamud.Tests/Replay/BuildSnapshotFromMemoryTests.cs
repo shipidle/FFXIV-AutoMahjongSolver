@@ -155,6 +155,110 @@ public class BuildSnapshotFromMemoryTests
     }
 
     [Fact]
+    public void Settlement_minus_1000_without_new_discard_does_not_infer_riichi()
+    {
+        var (variant, ctx) = MakeVariant(EmjProfile);
+
+        var before = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 25000, 25000, 25000)
+            .WithDiscardCounts(2, 3, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+
+        var snap1 = variant.BuildSnapshotFromMemory(
+            before, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+        Assert.NotNull(snap1);
+
+        // Simulate a hand-end settlement that happens to move seat 1 by exactly -1000
+        // while their discard count does not change. This must NOT look like riichi.
+        var settlement = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(2, 3, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+
+        var snap2 = variant.BuildSnapshotFromMemory(
+            settlement, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snap2);
+        Assert.False(snap2!.Seats[1].Riichi);
+    }
+
+    [Fact]
+    public void Per_seat_discard_count_drop_resets_riichi_even_if_total_discards_are_higher()
+    {
+        var (variant, ctx) = MakeVariant(EmjProfile);
+
+        var before = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 25000, 25000, 25000)
+            .WithDiscardCounts(0, 1, 0, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        variant.BuildSnapshotFromMemory(
+            before, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        var declared = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(0, 2, 0, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        var snapRiichi = variant.BuildSnapshotFromMemory(
+            declared, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snapRiichi);
+        Assert.True(snapRiichi!.Seats[1].Riichi);
+
+        // First snapshot we catch in the next hand can already have MORE total discards
+        // than the prior hand. The individual seat count drop is still a reliable reset.
+        var nextHandLateObservation = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(1, 1, 1, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        var snapNext = variant.BuildSnapshotFromMemory(
+            nextHandLateObservation, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snapNext);
+        Assert.False(snapNext!.Seats[1].Riichi);
+    }
+
+    [Fact]
+    public void Riichi_deposit_can_arrive_one_snapshot_before_the_declaration_discard()
+    {
+        var (variant, ctx) = MakeVariant(EmjProfile);
+
+        var before = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 25000, 25000, 25000)
+            .WithDiscardCounts(2, 3, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        variant.BuildSnapshotFromMemory(
+            before, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        var depositFirst = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(2, 3, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        var snapDeposit = variant.BuildSnapshotFromMemory(
+            depositFirst, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snapDeposit);
+        Assert.False(snapDeposit!.Seats[1].Riichi);
+
+        var discardNext = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(2, 4, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        var snapDeclared = variant.BuildSnapshotFromMemory(
+            discardNext, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snapDeclared);
+        Assert.True(snapDeclared!.Seats[1].Riichi);
+    }
+
+    [Fact]
     public void Akadora_red_5m_in_hand_increments_count()
     {
         var memory = new AddonMemoryBuilder(EmjProfile)
