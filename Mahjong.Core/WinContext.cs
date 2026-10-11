@@ -27,7 +27,8 @@ public sealed record WinContext(
     IReadOnlyList<Tile>? DoraIndicators = null,
     IReadOnlyList<Tile>? UraDoraIndicators = null,
     bool IsDealer = false,
-    int AkaDora = 0)
+    int AkaDora = 0,
+    bool WindInfoKnown = true)
 {
     public IReadOnlyList<Tile>? DoraIndicators { get; init; }
         = DoraIndicators is null ? null : [.. DoraIndicators];
