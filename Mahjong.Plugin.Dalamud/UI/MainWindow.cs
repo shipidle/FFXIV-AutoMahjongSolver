@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
@@ -8,6 +10,7 @@ using Mahjong.Engine;
 using Mahjong.Plugin.Dalamud.Actions;
 using Mahjong.Policy;
 using Mahjong.Policy.Abstractions;
+using Mahjong.Policy.Efficiency;
 
 namespace Mahjong.Plugin.Dalamud.UI;
 
