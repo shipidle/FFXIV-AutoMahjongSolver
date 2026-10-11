@@ -17,6 +17,7 @@ using Mahjong.Plugin.Dalamud.UI;
 using Mahjong.Plugin.Game;
 using Mahjong.Policy;
 using Mahjong.Policy.Efficiency;
+using Mahjong.Rules;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Mahjong.Plugin.Dalamud;
@@ -55,6 +56,7 @@ public sealed class Plugin : IDalamudPlugin
     public AddonEmjReader AddonReader { get; }
     public MeldTracker MeldTracker { get; } = new();
     public StateAggregator Aggregator { get; }
+    public IRuleSet RuleSet { get; }
     public IPolicy Policy { get; }
     public InputEventLogger EventLogger { get; }
     public InputDispatcher Dispatcher { get; }
@@ -122,6 +124,7 @@ public sealed class Plugin : IDalamudPlugin
         Services = PluginServices.Build(dalamud, migrated);
         ConfigService = Services.GetRequiredService<IConfigService<Configuration>>();
 
+        RuleSet = Services.GetRequiredService<IRuleSet>();
         Policy = Services.GetRequiredService<IPolicy>();
 
         // Sinks must exist before any reader construction — readers emit findings on probe.
@@ -146,7 +149,7 @@ public sealed class Plugin : IDalamudPlugin
             AddonLifecycle, Log, mahjongAddon, MeldTracker, configDir, layoutsDir, FindingsLog);
         // Accessor closes over AddonReader so state codes and the hand-array offset follow the active variant. Constructed after AddonReader so the closure resolves to the live profile by the time DispatchDiscard runs.
         Dispatcher = new InputDispatcher(mahjongAddon, () => AddonReader.ActiveLayout);
-        Aggregator = new StateAggregator(AddonReader, Framework, Policy);
+        Aggregator = new StateAggregator(AddonReader, Framework, Policy, RuleSet.DoraRule);
         EventLogger = new InputEventLogger(
             AddonReader, AddonLifecycle, GameInterop, Log, mahjongAddon, configDir);
         AddonReader.EventLogger = EventLogger;
