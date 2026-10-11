@@ -3,6 +3,10 @@
   <PropertyGroup>
     <Description>Reads your Doman Mahjong hand and either suggests the best discard or plays the match for you.</Description>
     <IsPackable>false</IsPackable>
+    <!-- Personal fork CI: current Dalamud dev SDK renamed AtkValueType.String8 to
+         ConstString. Keep the working KR-runtime code unchanged and silence only
+         the obsolete-name diagnostic while both names remain binary-compatible. -->
+    <NoWarn>$(NoWarn);CS0618</NoWarn>
   </PropertyGroup>
 
   <!--
