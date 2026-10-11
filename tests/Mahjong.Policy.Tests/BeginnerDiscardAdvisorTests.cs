@@ -71,6 +71,24 @@ public class BeginnerDiscardAdvisorTests
     }
 
     [Fact]
+    public void AnalyzeDiscard_never_substitutes_a_different_tile()
+    {
+        var state = Snapshots.Closed14("123m456p789s234s5z6z");
+        var hand = Hand.FromTiles(state.Hand, state.OurMelds);
+        var wall = BeginnerDiscardAdvisor.BuildVisibleWall(state);
+        var entries = UkeireEnumerator.Enumerate(hand, wall);
+
+        Assert.NotEmpty(entries);
+
+        foreach (var entry in entries)
+        {
+            var analysis = BeginnerDiscardAdvisor.AnalyzeDiscard(state, entry.Discard);
+            Assert.NotNull(analysis);
+            Assert.Equal(entry.Discard.Id, analysis!.Discard.Id);
+        }
+    }
+
+    [Fact]
     public void Far_hand_against_riichi_switches_to_defense_mode()
     {
         var s = Snapshots.Closed14("147m258p369s12345z");
