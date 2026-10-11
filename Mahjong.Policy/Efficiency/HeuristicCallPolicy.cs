@@ -46,7 +46,7 @@ public sealed class HeuristicCallPolicy : ICallPolicy
             foreach (var t in c.HandTiles)
                 counts[t.Id]--;
             int meldsAfter = state.OurMelds.Count + 1;
-            int reachableHan = EstimateReachableHan(counts, meldsAfter, state, c, ruleSet.DoraRule);
+            int reachableHan = EstimateReachableYakuHan(counts, meldsAfter, state, c);
             foreach (var t in c.HandTiles)
                 counts[t.Id]++;
 
@@ -148,25 +148,6 @@ public sealed class HeuristicCallPolicy : ICallPolicy
         for (int id = TileIds.FirstWind; id <= TileIds.LastWind; id++)
             if (counts[id] >= 2 && IsYakuhaiWind(id, state))
                 han++;
-        return han;
-    }
-
-    private static int RetainedDoraHan(int[] counts, StateSnapshot state, MeldCandidate thisCall, IDoraRule doraRule)
-    {
-        if (state.DoraIndicators.Count == 0)
-            return 0;
-        int han = 0;
-        foreach (var indicator in state.DoraIndicators)
-        {
-            int doraId = doraRule.Next(indicator).Id;
-            han += counts[doraId];
-            foreach (var m in state.OurMelds)
-                foreach (var t in m.Tiles)
-                    if (t.Id == doraId) han++;
-            if (thisCall.ClaimedTile.Id == doraId) han++;
-            foreach (var t in thisCall.HandTiles)
-                if (t.Id == doraId) han++;
-        }
         return han;
     }
 
