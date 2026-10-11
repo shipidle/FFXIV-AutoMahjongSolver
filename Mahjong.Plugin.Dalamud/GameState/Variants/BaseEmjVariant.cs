@@ -300,6 +300,29 @@ internal sealed class BaseEmjVariant : IEmjVariant
                 Math.Min(scores.Length, lastRiichiScores.Length),
                 Math.Min(discardCounts.Length, lastRiichiDiscardCounts.Length));
 
+            int previousScoreTotal = 0;
+            int currentScoreTotal = 0;
+            bool anyScoreChanged = false;
+            for (int seat = 0; seat < seats; seat++)
+            {
+                previousScoreTotal += lastRiichiScores[seat];
+                currentScoreTotal += scores[seat];
+                anyScoreChanged |= lastRiichiScores[seat] != scores[seat];
+            }
+
+            int tableScoreDrop = previousScoreTotal - currentScoreTotal;
+            bool looksLikeSingleRiichiDeposit = tableScoreDrop == 1000;
+
+            // Any other score movement is a settlement/result transition, not a declaration.
+            // Clear hand-scoped riichi state immediately so it cannot leak into the next hand
+            // even if the first next-hand snapshot is observed after several discards.
+            if (anyScoreChanged && !looksLikeSingleRiichiDeposit)
+            {
+                Array.Fill(inferredRiichi, false);
+                Array.Fill(inferredRiichiDiscardIndex, -1);
+                Array.Fill(pendingRiichiDeposit, false);
+            }
+
             for (int seat = 0; seat < seats; seat++)
             {
                 if (inferredRiichi[seat])
@@ -308,12 +331,12 @@ internal sealed class BaseEmjVariant : IEmjVariant
                 int scoreDrop = lastRiichiScores[seat] - scores[seat];
                 int discardDelta = discardCounts[seat] - lastRiichiDiscardCounts[seat];
 
-                // Score deposit may appear one snapshot before the declaration discard.
-                if (scoreDrop == 1000)
+                // A real riichi deposit lowers this seat by 1,000 AND the four-player total
+                // by 1,000. A settlement that merely transfers 1,000 between players does not.
+                if (looksLikeSingleRiichiDeposit && scoreDrop == 1000)
                     pendingRiichiDeposit[seat] = true;
 
                 // Only confirm riichi when the same player actually adds exactly one discard.
-                // This rejects hand-end +/-1000 settlements with no declaration discard.
                 if (pendingRiichiDeposit[seat] && discardDelta == 1)
                 {
                     inferredRiichi[seat] = true;
@@ -322,8 +345,6 @@ internal sealed class BaseEmjVariant : IEmjVariant
                     continue;
                 }
 
-                // If play has moved on by more than one discard from this seat, the pending
-                // deposit was not a matching declaration and should not linger forever.
                 if (pendingRiichiDeposit[seat] && discardDelta > 1)
                     pendingRiichiDeposit[seat] = false;
             }
