@@ -122,10 +122,14 @@ public sealed class HeuristicCallPolicy : ICallPolicy
     }
 
     /// <summary>
-    /// Sum reachable han across yaku families plus dora retained on the post-call concealed hand.
-    /// Treats families as independent so the active ruleset can enforce its minimum-yaku threshold.
+    /// Sum reachable han from actual yaku families only.
+    /// Dora is a bonus and cannot make a yakuless hand legal.
     /// </summary>
-    private static int EstimateReachableHan(int[] counts, int meldsAfter, StateSnapshot state, MeldCandidate thisCall, IDoraRule doraRule)
+    private static int EstimateReachableYakuHan(
+        int[] counts,
+        int meldsAfter,
+        StateSnapshot state,
+        MeldCandidate thisCall)
     {
         int han = ReachableYakuhaiHan(counts, state, thisCall);
         if (HasReachableTanyao(counts, state, thisCall)) han++;
@@ -133,7 +137,6 @@ public sealed class HeuristicCallPolicy : ICallPolicy
         if (HasReachableToitoi(counts, state, thisCall)) han += 2;
         if (HasReachableSanshokuDoujun(counts, state, thisCall)) han++;
         if (HasReachableIttsu(counts, state, thisCall)) han++;
-        han += RetainedDoraHan(counts, state, thisCall, doraRule);
         return han;
     }
 
