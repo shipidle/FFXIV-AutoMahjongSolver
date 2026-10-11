@@ -37,6 +37,13 @@ public sealed class SettingsWindow : Window, IDisposable
         _ => "Neon glow + corner brackets",
     };
 
+    private static string AdviceModeLabel(AdviceMode mode) => mode switch
+    {
+        AdviceMode.Beginner => "왕초보",
+        AdviceMode.Detailed => "상세",
+        _ => "일반",
+    };
+
     private void DrawHighlightPreview(Configuration cfg)
     {
         // Radio above the preview to flip which color is being shown.
@@ -198,10 +205,33 @@ public sealed class SettingsWindow : Window, IDisposable
 
             ImGui.Dummy(new Vector2(0, 4));
 
-            bool details = cfg.ShowSuggestionDetails;
-            if (ImGui.Checkbox("Show analysis details under best move", ref details))
+            var adviceMode = cfg.AdviceMode;
+            ImGui.SetNextItemWidth(300);
+            if (ImGui.BeginCombo("설명 모드", AdviceModeLabel(adviceMode)))
+            {
+                foreach (var opt in new[] { AdviceMode.Beginner, AdviceMode.Standard, AdviceMode.Detailed })
+                {
+                    bool selected = opt == adviceMode;
+                    if (ImGui.Selectable(AdviceModeLabel(opt), selected) && opt != adviceMode)
+                        plugin.ConfigService.Update(c => c with { AdviceMode = opt });
+                    if (selected)
+                        ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
+            }
+            Theme.Subtle("왕초보: 쉬운 한국어 설명 + 별도 추천기 / 일반: 기존 추천 / 상세: 기존 수치와 상위 후보 표시.");
+
+            ImGui.Dummy(new Vector2(0, 4));
+
+            bool safetyHud = cfg.ShowSafetyHud;
+            if (ImGui.Checkbox("왕초보 모드에서 수비 안전도 표시", ref safetyHud))
+                plugin.ConfigService.Update(c => c with { ShowSafetyHud = safetyHud });
+            Theme.Subtle("상대 리치 시 현물·스지·보이는 패 수를 이용해 안전도를 쉽게 설명합니다.");
+
+            // Keep the legacy toggle synchronized for code paths that still read it.
+            bool details = cfg.AdviceMode == AdviceMode.Detailed;
+            if (details != cfg.ShowSuggestionDetails)
                 plugin.ConfigService.Update(c => c with { ShowSuggestionDetails = details });
-            Theme.Subtle("Adds a shanten / ukeire breakdown of the top discards in the main window.");
         }
 
         ImGui.Dummy(new Vector2(0, 4));
