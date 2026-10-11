@@ -294,6 +294,31 @@ public sealed class AddonEmjReader : IDisposable
         return Variants.HandArrayDecoder.FindAddonSlotPreservingAkadora(raw, eff, target.Id);
     }
 
+    /// <summary>Canonical tile ids (5m/5p/5s) whose closed-hand copy is currently red.</summary>
+    public unsafe IReadOnlySet<int> GetClosedRedFiveTileIds()
+    {
+        var result = new HashSet<int>();
+        if (ActiveLayout is null)
+            return result;
+        if (!addon.TryGet(out var unit, out _) || !unit->IsVisible)
+            return result;
+
+        int len = ActiveLayout.Limits.HandSize;
+        Span<int> raw = stackalloc int[len];
+        byte* basePtr = (byte*)unit;
+        for (int i = 0; i < len; i++)
+            raw[i] = *(int*)(basePtr + ActiveLayout.Offsets.HandArrayStart + i * 4);
+
+        int eff = Variants.HandArrayDecoder.ResolveTextureBase(raw, ActiveLayout.TileTextureBase, out _);
+        for (int i = 0; i < raw.Length; i++)
+        {
+            int tileId = Variants.HandArrayDecoder.DecodeTileId(raw[i], eff, out bool isRed);
+            if (tileId >= 0 && isRed)
+                result.Add(tileId);
+        }
+        return result;
+    }
+
     /// <summary>
     /// Index in the compressed hand list for the preferred physical copy of
     /// <paramref name="target"/>. For 5s, a normal copy is preferred over aka dora.
