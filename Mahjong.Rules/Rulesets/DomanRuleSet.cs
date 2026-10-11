@@ -3,7 +3,7 @@ using Mahjong.Rules.Scoring;
 namespace Mahjong.Rules.Rulesets;
 
 /// <summary>
-/// FFXIV Doman: identical to <see cref="RiichiRuleSet"/> except <see cref="MinHan"/>=2.
+/// FFXIV Doman: uses standard riichi yaku/scoring with a one-yaku minimum.
 /// </summary>
 public sealed class DomanRuleSet : IRuleSet
 {
@@ -18,7 +18,7 @@ public sealed class DomanRuleSet : IRuleSet
 
     public bool AllowsRedDora => false;
     public bool AllowsKuitan => true;
-    public int MinHan => 2;
+    public int MinHan => 1;
     public int KazoeThreshold => ScoringConstants.KazoeYakumanHan;
     public int MaxYakuman => 2;
 }
