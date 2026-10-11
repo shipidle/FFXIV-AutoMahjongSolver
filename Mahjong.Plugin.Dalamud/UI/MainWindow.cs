@@ -542,6 +542,14 @@ public sealed class MainWindow : Window, IDisposable
             }
         }
 
+        if (rec.DeadTenpai)
+        {
+            ImGui.Dummy(new Vector2(0, 4));
+            ImGui.PushStyleColor(ImGuiCol.Text, Theme.Danger);
+            ImGui.TextWrapped("주의: 이 모양은 텐파이여도 현재 확인되는 역이 없어 바로 화료하기 어려움. 다른 역을 붙이는 방향이 필요함.");
+            ImGui.PopStyleColor();
+        }
+
         if (cfg.ShowSafetyHud && rec.Safety != BeginnerSafetyLevel.NoThreat)
         {
             ImGui.Dummy(new Vector2(0, 4));
