@@ -73,9 +73,10 @@ public static class PluginServices
 
     private static void RegisterRules(IServiceCollection services)
     {
-        services.AddSingleton<IRuleSet, DomanRuleSet>();
+        services.AddSingleton<IDoraRule, ConfiguredDomanDoraRule>();
+        services.AddSingleton<IRuleSet>(sp =>
+            new DomanRuleSet(sp.GetRequiredService<IDoraRule>()));
         services.AddSingleton<IScoringRule, StandardScoringRule>();
-        services.AddSingleton<IDoraRule, StandardDoraRule>();
         services.AddSingleton<IFuRule, StandardFuRule>();
     }
 
