@@ -103,4 +103,62 @@ internal static class HandArrayDecoder
         }
         return -1;
     }
+
+    /// <summary>
+    /// Same lookup as <see cref="FindAddonSlot"/> but, for a canonical 5 tile, prefers a
+    /// non-red copy when one exists. This keeps aka dora in hand without changing Tile's
+    /// compact 34-id representation.
+    /// </summary>
+    public static int FindAddonSlotPreservingAkadora(
+        ReadOnlySpan<int> rawSlots,
+        int textureBase,
+        int targetTileId)
+    {
+        static bool IsCanonicalFive(int id) => id is 4 or 13 or 22;
+        if (!IsCanonicalFive(targetTileId))
+            return FindAddonSlot(rawSlots, textureBase, targetTileId);
+
+        if (rawSlots.Length > 13)
+        {
+            int id = DecodeTileId(rawSlots[13], textureBase, out bool red);
+            if (id == targetTileId && !red)
+                return 13;
+        }
+
+        for (int i = 0; i < rawSlots.Length; i++)
+        {
+            if (i == 13)
+                continue;
+            int id = DecodeTileId(rawSlots[i], textureBase, out bool red);
+            if (id == targetTileId && !red)
+                return i;
+        }
+
+        // No normal copy exists; discarding the red five is unavoidable.
+        return FindAddonSlot(rawSlots, textureBase, targetTileId);
+    }
+
+    /// <summary>
+    /// Converts an addon-array slot to the compressed hand-list index produced by
+    /// <see cref="ReadHand"/>. Needed by overlays when sparse post-call arrays contain gaps.
+    /// </summary>
+    public static int HandIndexForAddonSlot(
+        ReadOnlySpan<int> rawSlots,
+        int textureBase,
+        int addonSlot)
+    {
+        if (addonSlot < 0 || addonSlot >= rawSlots.Length)
+            return -1;
+
+        int handIndex = 0;
+        for (int i = 0; i < rawSlots.Length; i++)
+        {
+            if (DecodeTileId(rawSlots[i], textureBase, out _) < 0)
+                continue;
+            if (i == addonSlot)
+                return handIndex;
+            handIndex++;
+        }
+        return -1;
+    }
 }
