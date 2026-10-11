@@ -285,8 +285,10 @@ public sealed class MainWindow : Window, IDisposable
 
             Tile? highlightTile = beginner?.Discard ?? choice?.DiscardTile;
             int highlightSlot = highlightTile is { } t
-                ? InputDispatcher.FindSlotOfTile(t, snap.Hand)
+                ? plugin.AddonReader.FindHandIndexOfTile(t)
                 : -1;
+            if (highlightSlot < 0 && highlightTile is { } fallbackTile)
+                highlightSlot = InputDispatcher.FindSlotOfTile(fallbackTile, snap.Hand);
 
             DrawSeatRow(snap);
             ImGui.Dummy(new Vector2(0, 10));
