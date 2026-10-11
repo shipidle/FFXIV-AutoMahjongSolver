@@ -133,7 +133,7 @@ public sealed class HeuristicCallPolicy : ICallPolicy
     {
         int han = ReachableYakuhaiHan(counts, state, thisCall);
         if (HasReachableTanyao(counts, state, thisCall)) han++;
-        if (HasReachableSuitFlush(counts)) han += 2;
+        if (HasReachableSuitFlush(counts, state, thisCall)) han += 2;
         if (HasReachableToitoi(counts, state, thisCall)) han += 2;
         if (HasReachableSanshokuDoujun(counts, state, thisCall)) han++;
         if (HasReachableIttsu(counts, state, thisCall)) han++;
@@ -170,19 +170,45 @@ public sealed class HeuristicCallPolicy : ICallPolicy
         return thisCall.ClaimedTile.IsSimple;
     }
 
-    private static bool HasReachableSuitFlush(int[] counts)
+    private static bool HasReachableSuitFlush(
+        int[] counts,
+        StateSnapshot state,
+        MeldCandidate thisCall)
     {
         int? suit = null;
+
+        static bool AddSuit(ref int? current, Tile tile)
+        {
+            if (tile.IsHonor)
+                return true;
+            int s = (int)tile.Suit;
+            if (current is null)
+            {
+                current = s;
+                return true;
+            }
+            return current == s;
+        }
+
         for (int id = 0; id < TileIds.HonorStart; id++)
         {
             if (counts[id] == 0)
                 continue;
-            int s = id / TileIds.SuitSize;
-            if (suit is null)
-                suit = s;
-            else if (suit != s)
+            if (!AddSuit(ref suit, Tile.FromId(id)))
                 return false;
         }
+
+        foreach (var meld in state.OurMelds)
+            foreach (var tile in meld.Tiles)
+                if (!AddSuit(ref suit, tile))
+                    return false;
+
+        if (!AddSuit(ref suit, thisCall.ClaimedTile))
+            return false;
+        foreach (var tile in thisCall.HandTiles)
+            if (!AddSuit(ref suit, tile))
+                return false;
+
         return suit is not null;
     }
 
