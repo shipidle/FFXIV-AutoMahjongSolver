@@ -97,6 +97,26 @@ public class YakuRuleTests
     }
 
     [Fact]
+    public void YakuhaiRule_ignores_wind_hits_when_wind_context_is_unknown()
+    {
+        var rule = new YakuhaiRule();
+        var east = Tile.FromId(27);
+        var triplet = new Group(GroupKind.Triplet, east, IsOpen: false);
+        var pair = new Group(GroupKind.Pair, Two, IsOpen: false);
+        var run = new Group(GroupKind.Run, Two, IsOpen: false);
+        var d = StandardDecomp(triplet, run, run, run, pair);
+
+        var ctx = Tsumo(One) with
+        {
+            RoundWindTileId = 27,
+            SeatWindTileId = 27,
+            WindInfoKnown = false,
+        };
+
+        Assert.Empty(rule.Detect(d, ctx));
+    }
+
+    [Fact]
     public void HaiteiRule_fires_on_context_flag_only()
     {
         var rule = new HaiteiRule();
