@@ -1,5 +1,7 @@
 using Mahjong.Engine;
+using Mahjong.Rules;
 using Mahjong.Rules.Rulesets;
+using Mahjong.Rules.Scoring;
 
 namespace Mahjong.Policy.Efficiency;
 
@@ -38,8 +40,10 @@ public static class BeginnerDiscardAdvisor
 
     public static BeginnerDiscardRecommendation? Recommend(
         StateSnapshot state,
-        IReadOnlySet<int>? closedRedFiveTileIds = null)
+        IReadOnlySet<int>? closedRedFiveTileIds = null,
+        IDoraRule? doraRule = null)
     {
+        doraRule ??= new StandardDoraRule();
         ArgumentNullException.ThrowIfNull(state);
 
         if (!state.Legal.Can(ActionFlags.Discard))
@@ -56,7 +60,7 @@ public static class BeginnerDiscardAdvisor
 
         // Reuse the existing scorer only as a source of value metadata.
         // Its aggregate Score is intentionally NOT used for beginner ranking.
-        var valueRows = DiscardScorer.Score(state, wall: wall)
+        var valueRows = DiscardScorer.Score(state, wall: wall, doraRule: doraRule)
             .ToDictionary(x => x.Discard.Id);
 
         bool anyRiichi = HasRiichiThreat(state);
