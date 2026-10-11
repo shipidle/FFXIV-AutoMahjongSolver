@@ -115,10 +115,10 @@ public class HeuristicCallPolicyTests
     }
 
     [Fact]
-    public void Doman_declines_chi_with_lone_yakuhai_pair_below_min_han()
+    public void Doman_accepts_chi_with_one_han_yakuhai_path()
     {
         // Reproduces issue #50: post-Chi shape (7m 44p 789p 345s 55z + Chi 789p meld) has
-        // only 1 reachable han via the 55z dragon pair. Doman MinHan=2 must reject.
+        // only 1 reachable han via the 55z dragon pair. One yaku is enough in Doman.
         var policy = new HeuristicCallPolicy(new DomanRuleSet());
         var seats = new SeatView[]
         {
@@ -141,15 +141,16 @@ public class HeuristicCallPolicyTests
         };
 
         var d = policy.Evaluate(s);
-        Assert.False(d.Accept,
-            $"Doman should decline lone-yakuhai-pair Chi (got {d.Reason.Code}: {d.Reason.Display})");
-        Assert.Equal("no-shanten-gain-with-yaku", d.Reason.Code);
+        Assert.True(d.Accept,
+            $"Doman should accept a call that advances shanten and keeps a 1-han yaku path " +
+            $"(got {d.Reason.Code}: {d.Reason.Display})");
+        Assert.Equal(MeldKind.Chi, d.Value!.Value.Kind);
     }
 
     [Fact]
     public void Riichi_accepts_same_chi_at_min_han_one()
     {
-        // Same hand as the Doman test; Riichi MinHan=1, 1-han yakuhai suffices.
+        // Same hand under standard riichi rules; 1-han yakuhai also suffices.
         var policy = new HeuristicCallPolicy(new RiichiRuleSet());
         var seats = new SeatView[]
         {
