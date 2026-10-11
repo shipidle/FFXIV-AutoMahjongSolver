@@ -607,8 +607,8 @@ public sealed class MainWindow : Window, IDisposable
                 reason = "현재 solver가 이 깡을 진행하는 편이 낫다고 판단함. 왕초보 모드에서는 깡은 보수적으로 참고하는 걸 권장함.";
                 break;
             case ActionKind.Pass when HasCallOffer(snap.Legal):
-                title = "치/퐁/깡 넘기기 ❌";
-                reason = "받아도 손이 확실히 빨라지지 않거나, 받은 뒤 만들 수 있는 역이 불분명해서 넘기는 쪽이 나음.";
+                title = "이번 울기는 넘기기 쪽 추천";
+                reason = "현재 코치가 확인한 범위에서는 샹텐이 확실히 줄지 않거나, 울고 난 뒤 역이 보장되지 않음. 다만 울기 판단은 보수적이라 일부 특수 역 루트는 놓칠 수 있음.";
                 break;
             default:
                 title = "기다리기";
