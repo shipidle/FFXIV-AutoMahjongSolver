@@ -134,6 +134,62 @@ public class HandArrayDecoderTests
     }
 
     [Fact]
+    public void FindRenderedHandIndex_keeps_drawn_slot_at_far_right_when_visual_gap_exists()
+    {
+        var raw = new int[14]
+        {
+            EmjTextureBase + 1, EmjTextureBase + 2, EmjTextureBase + 3, EmjTextureBase + 4,
+            EmjTextureBase + 5, EmjTextureBase + 6, EmjTextureBase + 7, EmjTextureBase + 8,
+            EmjTextureBase + 9, EmjTextureBase + 10, EmjTextureBase + 11, EmjTextureBase + 12,
+            EmjTextureBase + 13,
+            EmjTextureBase + 0, // drawn 1m, intentionally lower than every sorted tile
+        };
+
+        int index = HandArrayDecoder.FindRenderedHandIndex(
+            raw, EmjTextureBase, targetTileId: 0, lastVisualTileDetached: true);
+
+        Assert.Equal(13, index);
+    }
+
+    [Fact]
+    public void FindRenderedHandIndex_sorts_parked_slot13_when_visual_hand_is_integrated()
+    {
+        var raw = new int[14]
+        {
+            EmjTextureBase + 4, EmjTextureBase + 7, EmjTextureBase + 8,
+            EmjTextureBase + 10, EmjTextureBase + 12, EmjTextureBase + 13,
+            EmjTextureBase + 15, EmjTextureBase + 17, EmjTextureBase + 21,
+            EmjTextureBase + 23,
+            0, 0, 0,
+            EmjTextureBase + 1, // parked 2m; rendered hand should place this near the left
+        };
+
+        int index = HandArrayDecoder.FindRenderedHandIndex(
+            raw, EmjTextureBase, targetTileId: 1, lastVisualTileDetached: false);
+
+        Assert.Equal(0, index);
+    }
+
+    [Fact]
+    public void FindRenderedHandIndex_prefers_normal_five_over_red_five()
+    {
+        var raw = new int[14]
+        {
+            EmjTextureBase + 0,
+            EmjTextureBase + 34, // red 5m
+            EmjTextureBase + 4,  // normal 5m
+            EmjTextureBase + 8,
+            0,0,0,0,0,0,0,0,0,0
+        };
+
+        int index = HandArrayDecoder.FindRenderedHandIndex(
+            raw, EmjTextureBase, targetTileId: 4, lastVisualTileDetached: false);
+
+        // Sorted equal 5m copies retain slot order, but the normal copy is deliberately chosen.
+        Assert.Equal(2, index);
+    }
+
+    [Fact]
     public void HandIndexForAddonSlot_compresses_sparse_post_call_layout()
     {
         var raw = PostPonGapRaw();
