@@ -139,6 +139,64 @@ internal static class HandArrayDecoder
     }
 
     /// <summary>
+    /// Maps a tile kind to its left-to-right rendered hand position.
+    /// When the last visual tile is detached, addon slot 13 is the drawn tile and stays
+    /// at the far right. When it is not detached (notably immediately after a call), the
+    /// rendered hand is sorted by tile kind even though addon slot 13 can hold a parked tile.
+    /// </summary>
+    public static int FindRenderedHandIndex(
+        ReadOnlySpan<int> rawSlots,
+        int textureBase,
+        int targetTileId,
+        bool lastVisualTileDetached)
+    {
+        var entries = new List<(int Slot, int TileId, bool Red)>(rawSlots.Length);
+        for (int i = 0; i < rawSlots.Length; i++)
+        {
+            int id = DecodeTileId(rawSlots[i], textureBase, out bool red);
+            if (id >= 0)
+                entries.Add((i, id, red));
+        }
+
+        if (entries.Count == 0)
+            return -1;
+
+        if (lastVisualTileDetached)
+        {
+            entries.Sort((a, b) =>
+            {
+                if (a.Slot == 13 && b.Slot != 13) return 1;
+                if (b.Slot == 13 && a.Slot != 13) return -1;
+                return a.Slot.CompareTo(b.Slot);
+            });
+        }
+        else
+        {
+            // Stable sort by tile kind. Equal tiles keep addon-slot order.
+            entries.Sort((a, b) =>
+            {
+                int cmp = a.TileId.CompareTo(b.TileId);
+                return cmp != 0 ? cmp : a.Slot.CompareTo(b.Slot);
+            });
+        }
+
+        static bool IsCanonicalFive(int id) => id is 4 or 13 or 22;
+
+        if (IsCanonicalFive(targetTileId))
+        {
+            for (int i = 0; i < entries.Count; i++)
+                if (entries[i].TileId == targetTileId && !entries[i].Red)
+                    return i;
+        }
+
+        for (int i = 0; i < entries.Count; i++)
+            if (entries[i].TileId == targetTileId)
+                return i;
+
+        return -1;
+    }
+
+    /// <summary>
     /// Converts an addon-array slot to the compressed hand-list index produced by
     /// <see cref="ReadHand"/>. Needed by overlays when sparse post-call arrays contain gaps.
     /// </summary>
