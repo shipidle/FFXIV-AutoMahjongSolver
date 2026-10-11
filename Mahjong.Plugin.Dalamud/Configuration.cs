@@ -37,6 +37,10 @@ public sealed record Configuration : IPluginConfiguration
 
     public bool ShowSuggestionDetails { get; init; } = false;
 
+    public AdviceMode AdviceMode { get; init; } = AdviceMode.Beginner;
+
+    public bool ShowSafetyHud { get; init; } = true;
+
     /// <summary>Sticky once the user accepts the first-arming auto-play warning.</summary>
     public bool AutoPlayConfirmed { get; init; } = false;
 
@@ -57,6 +61,13 @@ public enum HighlightStyle
 {
     NeonGlow = 0,
     Arrow = 2,
+}
+
+public enum AdviceMode
+{
+    Beginner = 0,
+    Standard = 1,
+    Detailed = 2,
 }
 
 /// <summary>Init-only property record (not positional) so Newtonsoft.Json round-trips it cleanly.</summary>
