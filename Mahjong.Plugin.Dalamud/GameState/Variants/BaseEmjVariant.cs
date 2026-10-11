@@ -41,6 +41,14 @@ internal sealed class BaseEmjVariant : IEmjVariant
     private int lastLoggedCallPromptState = -1;
     private int lastLoggedMeldHandCount = -1;
 
+    // The addon layout does not expose a riichi flag yet. During a hand, the only normal
+    // score mutation is the 1,000-point riichi deposit, so track exact -1000 deltas.
+    // This cannot recover a declaration made before the plugin attached mid-hand.
+    private readonly bool[] inferredRiichi = new bool[4];
+    private readonly int[] inferredRiichiDiscardIndex = [-1, -1, -1, -1];
+    private int[]? lastRiichiScores;
+    private int lastRiichiTotalDiscards = -1;
+
     public unsafe bool Probe(AtkUnitBase* unit)
     {
         if (unit == null || unit->RootNode == null)
@@ -114,7 +122,9 @@ internal sealed class BaseEmjVariant : IEmjVariant
         int stateCode = ReadStateCode(atkValues);
         int wallRemaining = ResolveWallRemaining(discardCounts);
 
-        var seats = BuildSeatViews(memory, discardCounts);
+        UpdateInferredRiichi(scores, discardCounts);
+        var seats = BuildSeatViews(
+            memory, discardCounts, inferredRiichi, inferredRiichiDiscardIndex);
         var legal = BuildLegalActions(stateCode, hand, atkValues, callModalVisible, listWidgetLabels);
 
         if (enableDiagnosticLogging)
@@ -141,6 +151,7 @@ internal sealed class BaseEmjVariant : IEmjVariant
             // for score/discard arrays, but do not let policy/scoring treat East as a confirmed
             // value wind on every hand.
             OurSeat = 0,
+            OurRiichi = inferredRiichi[0],
             RoundWind = 0,
             SeatInfoKnown = false,
             AkaDora = totalAkadora,
@@ -242,7 +253,46 @@ internal sealed class BaseEmjVariant : IEmjVariant
         return derived >= 0 && derived <= profile.Limits.WallInitial ? derived : profile.Limits.WallInitial;
     }
 
-    private SeatView[] BuildSeatViews(ReadOnlySpan<byte> memory, int[] discardCounts)
+    private void UpdateInferredRiichi(int[] scores, int[] discardCounts)
+    {
+        int totalDiscards = 0;
+        for (int i = 0; i < discardCounts.Length; i++)
+            totalDiscards += discardCounts[i];
+
+        bool newHand =
+            lastRiichiTotalDiscards >= 0 &&
+            totalDiscards < lastRiichiTotalDiscards;
+
+        if (newHand)
+        {
+            Array.Fill(inferredRiichi, false);
+            Array.Fill(inferredRiichiDiscardIndex, -1);
+        }
+
+        if (lastRiichiScores is not null && !newHand)
+        {
+            for (int seat = 0; seat < Math.Min(scores.Length, lastRiichiScores.Length); seat++)
+            {
+                if (inferredRiichi[seat])
+                    continue;
+
+                if (lastRiichiScores[seat] - scores[seat] == 1000)
+                {
+                    inferredRiichi[seat] = true;
+                    inferredRiichiDiscardIndex[seat] = Math.Max(0, discardCounts[seat] - 1);
+                }
+            }
+        }
+
+        lastRiichiScores = [.. scores];
+        lastRiichiTotalDiscards = totalDiscards;
+    }
+
+    private SeatView[] BuildSeatViews(
+        ReadOnlySpan<byte> memory,
+        int[] discardCounts,
+        IReadOnlyList<bool> riichi,
+        IReadOnlyList<int> riichiDiscardIndex)
     {
         var seats = new SeatView[4];
         int?[] discardArrayOffsets =
@@ -259,8 +309,8 @@ internal sealed class BaseEmjVariant : IEmjVariant
                 Discards: discards,
                 DiscardIsTedashi: Enumerable.Repeat(true, discards.Count).ToList(),
                 Melds: [],
-                Riichi: false,
-                RiichiDiscardIndex: -1,
+                Riichi: riichi[i],
+                RiichiDiscardIndex: riichiDiscardIndex[i],
                 Ippatsu: false,
                 IsTenpaiCalled: false,
                 DiscardCount: discardCounts[i]);
