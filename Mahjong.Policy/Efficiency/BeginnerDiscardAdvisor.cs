@@ -18,6 +18,7 @@ public sealed record BeginnerDiscardRecommendation(
     int LiveUkeire,
     double YakuPotential,
     int DoraRetained,
+    int AkaDoraRetained,
     int YakuhaiRetained,
     BeginnerSafetyLevel Safety,
     string SafetyReason,
@@ -31,7 +32,9 @@ public sealed record BeginnerDiscardRecommendation(
 /// </summary>
 public static class BeginnerDiscardAdvisor
 {
-    public static BeginnerDiscardRecommendation? Recommend(StateSnapshot state)
+    public static BeginnerDiscardRecommendation? Recommend(
+        StateSnapshot state,
+        IReadOnlySet<int>? closedRedFiveTileIds = null)
     {
         ArgumentNullException.ThrowIfNull(state);
 
@@ -63,6 +66,15 @@ public static class BeginnerDiscardAdvisor
             valueRows.TryGetValue(e.Discard.Id, out var value);
             var (safety, safetyReason) = EvaluateSafety(state, e.Discard, wall);
 
+            int closedCopies = 0;
+            foreach (var t in state.Hand)
+                if (t.Id == e.Discard.Id)
+                    closedCopies++;
+            bool losesAkaDora =
+                closedCopies == 1 &&
+                closedRedFiveTileIds?.Contains(e.Discard.Id) == true;
+            int akaRetained = Math.Max(0, state.AkaDora - (losesAkaDora ? 1 : 0));
+
             var candidate = new BeginnerDiscardRecommendation(
                 Discard: e.Discard,
                 ShantenAfter: e.ShantenAfter,
@@ -70,6 +82,7 @@ public static class BeginnerDiscardAdvisor
                 LiveUkeire: e.WeightedCount,
                 YakuPotential: value.YakuPotential,
                 DoraRetained: value.DoraRetained,
+                AkaDoraRetained: akaRetained,
                 YakuhaiRetained: value.YakuhaiRetained,
                 Safety: safety,
                 SafetyReason: safetyReason,
@@ -104,8 +117,8 @@ public static class BeginnerDiscardAdvisor
         int yakuCmp = a.YakuPotential.CompareTo(b.YakuPotential);
         if (yakuCmp != 0) return yakuCmp > 0;
 
-        int aValue = a.DoraRetained + a.YakuhaiRetained;
-        int bValue = b.DoraRetained + b.YakuhaiRetained;
+        int aValue = a.DoraRetained + a.AkaDoraRetained + a.YakuhaiRetained;
+        int bValue = b.DoraRetained + b.AkaDoraRetained + b.YakuhaiRetained;
         if (aValue != bValue) return aValue > bValue;
 
         if (!defenseMode)
