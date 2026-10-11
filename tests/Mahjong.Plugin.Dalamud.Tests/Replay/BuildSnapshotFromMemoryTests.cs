@@ -116,6 +116,45 @@ public class BuildSnapshotFromMemoryTests
     }
 
     [Fact]
+    public void Exact_1000_point_drop_mid_hand_infers_riichi_and_new_hand_resets_it()
+    {
+        var (variant, ctx) = MakeVariant(EmjProfile);
+
+        var before = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 25000, 25000, 25000)
+            .WithDiscardCounts(2, 3, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+
+        var snap1 = variant.BuildSnapshotFromMemory(
+            before, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+        Assert.NotNull(snap1);
+        Assert.False(snap1!.Seats[1].Riichi);
+
+        var afterRiichi = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(2, 4, 2, 2)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+
+        var snap2 = variant.BuildSnapshotFromMemory(
+            afterRiichi, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+        Assert.NotNull(snap2);
+        Assert.True(snap2!.Seats[1].Riichi);
+
+        var nextHand = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(0, 0, 0, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+
+        var snap3 = variant.BuildSnapshotFromMemory(
+            nextHand, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+        Assert.NotNull(snap3);
+        Assert.False(snap3!.Seats[1].Riichi);
+    }
+
+    [Fact]
     public void Akadora_red_5m_in_hand_increments_count()
     {
         var memory = new AddonMemoryBuilder(EmjProfile)
