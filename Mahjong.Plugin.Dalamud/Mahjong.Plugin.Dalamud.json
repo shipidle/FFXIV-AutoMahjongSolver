@@ -13,5 +13,7 @@
         "beginner",
         "personal",
         "suggestions"
-    ]
+    ],
+    "InternalName": "Mahjong.Plugin.Dalamud.PersonalKO",
+    "AcceptsFeedback": false
 }
