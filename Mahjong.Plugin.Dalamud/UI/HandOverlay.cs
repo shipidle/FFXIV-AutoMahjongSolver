@@ -87,9 +87,7 @@ public sealed class HandOverlay : IDisposable
             return;
 
         var choice = plugin.Aggregator.LastChoice;
-        Tile? suggested = cfg.AdviceMode == AdviceMode.Beginner
-            ? plugin.Aggregator.LastBeginner?.Discard ?? choice?.DiscardTile
-            : choice?.DiscardTile;
+        Tile? suggested = choice?.DiscardTile;
         if (suggested is null)
             return;
         int slot = plugin.AddonReader.FindHandIndexOfTile(suggested.Value);
