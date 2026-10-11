@@ -386,7 +386,7 @@ public sealed class MainWindow : Window, IDisposable
         {
             if (snap.Legal.Can(ActionFlags.Discard) && beginner is not null)
             {
-                DrawBeginnerDiscard(beginner, cfg);
+                DrawBeginnerDiscard(beginner, cfg, choice);
             }
             else if (choice is not null)
             {
@@ -483,7 +483,10 @@ public sealed class MainWindow : Window, IDisposable
         DrawLastAutoAction();
     }
 
-    private void DrawBeginnerDiscard(BeginnerDiscardRecommendation rec, Configuration cfg)
+    private void DrawBeginnerDiscard(
+        BeginnerDiscardRecommendation rec,
+        Configuration cfg,
+        ActionChoice? originalChoice)
     {
         float startY = ImGui.GetCursorPosY();
         float bigH = Theme.BigTileH;
@@ -506,6 +509,14 @@ public sealed class MainWindow : Window, IDisposable
         ImGui.PopStyleColor();
 
         ImGui.SetCursorPosY(startY + bigH + 6);
+
+        if (originalChoice?.Kind == ActionKind.Riichi && rec.ShantenAfter == 0)
+        {
+            ImGui.PushStyleColor(ImGuiCol.Text, Theme.Accent);
+            ImGui.TextWrapped("리치 추천 ✅ 먼저 리치를 누른 다음, 위에 표시된 패를 버리면 됨.");
+            ImGui.PopStyleColor();
+            ImGui.Dummy(new Vector2(0, 3));
+        }
 
         if (rec.DefenseMode)
         {
