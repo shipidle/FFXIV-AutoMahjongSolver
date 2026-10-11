@@ -10,10 +10,10 @@ namespace Mahjong.Policy.Efficiency;
 public static class YakuPotential
 {
     /// <summary>
-    /// Saturation point in han. Was 2.0 (Doman min). Raising it to 4.0 means a fat 4-han
-    /// hand reads as 1.0 and a thin 2-han hand reads as 0.5, so the scorer no longer
-    /// plateaus the moment legality is reached. DiscardScorer reads this to size the
-    /// yakuless-tenpai penalty.
+    /// Saturation point in han. This is a hand-value target, not Doman's legality floor.
+    /// A 4-han hand reads as 1.0 while lower-value routes remain distinguishable.
+    /// DiscardScorer reads this normalized projection when estimating whether a tenpai
+    /// shape still lacks a reachable yaku.
     /// </summary>
     public const double TargetHan = 4.0;
 
