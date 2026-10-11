@@ -76,7 +76,7 @@ public sealed class StandardFuRule : IFuRule
         int fu = 0;
         if (g.First.IsDragon)
             fu += YakuhaiPairFu;
-        if (g.First.IsWind)
+        if (g.First.IsWind && ctx.WindInfoKnown)
         {
             if (g.First.Id == ctx.RoundWindTileId)
                 fu += YakuhaiPairFu;
