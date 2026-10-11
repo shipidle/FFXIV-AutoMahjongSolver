@@ -8,6 +8,7 @@ using Mahjong.Engine;
 using Mahjong.Plugin.Dalamud.Actions;
 using Mahjong.Plugin.Dalamud.GameState;
 using Mahjong.Policy;
+using Mahjong.Policy.Efficiency;
 
 namespace Mahjong.Plugin.Dalamud.UI;
 
@@ -86,9 +87,12 @@ public sealed class HandOverlay : IDisposable
             return;
 
         var choice = plugin.Aggregator.LastChoice;
-        if (choice?.DiscardTile is null)
+        Tile? suggested = cfg.AdviceMode == AdviceMode.Beginner
+            ? plugin.Aggregator.LastBeginner?.Discard ?? choice?.DiscardTile
+            : choice?.DiscardTile;
+        if (suggested is null)
             return;
-        int slot = InputDispatcher.FindSlotOfTile(choice.DiscardTile.Value, snap.Hand);
+        int slot = InputDispatcher.FindSlotOfTile(suggested.Value, snap.Hand);
         if (slot < 0 || slot >= rects.Count)
             return;
 
