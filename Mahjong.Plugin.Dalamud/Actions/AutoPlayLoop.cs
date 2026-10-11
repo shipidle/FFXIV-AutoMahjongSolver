@@ -619,7 +619,7 @@ public sealed class AutoPlayLoop : IDisposable
                 return;
             }
 
-            var choice = ApplyBeginnerDiscardChoice(snap, plugin.Policy.Choose(snap));
+            var choice = plugin.Policy.Choose(snap);
             log.Info(
                 $"[AutoPlayLoop] discard body: schedState={context.State} curState={currentState} " +
                 $"hand={snap.Hand.Count} melds={snap.OurMelds.Count} flags={snap.Legal.Flags} " +
@@ -630,45 +630,6 @@ public sealed class AutoPlayLoop : IDisposable
                 $"[AutoPlayLoop] discard body done: {LastActionDescription} " +
                 $"path={plugin.Dispatcher.LastDiscardPath}");
         });
-    }
-
-    private ActionChoice ApplyBeginnerDiscardChoice(StateSnapshot snap, ActionChoice original)
-    {
-        if (plugin.Configuration.AdviceMode != AdviceMode.Beginner)
-            return original;
-        if (!snap.Legal.Can(ActionFlags.Discard))
-            return original;
-        if (original.Kind is not (ActionKind.Discard or ActionKind.Riichi))
-            return original;
-
-        BeginnerDiscardRecommendation? rec;
-        try
-        {
-            rec = BeginnerDiscardAdvisor.Recommend(
-                snap,
-                plugin.AddonReader.GetClosedRedFiveTileIds(),
-                plugin.RuleSet.DoraRule);
-        }
-        catch (Exception ex)
-        {
-            log.Warning($"[BeginnerCoach] discard advisor failed; falling back to original policy: {ex.Message}");
-            return original;
-        }
-
-        if (rec is null)
-            return original;
-
-        if (original.Kind == ActionKind.Riichi && rec.ShantenAfter == 0 && snap.Legal.Can(ActionFlags.Riichi))
-        {
-            return ActionChoice.DeclareRiichi(
-                rec.Discard,
-                $"beginner-coach riichi: shanten={rec.ShantenAfter} ukeire={rec.LiveUkeire}");
-        }
-
-        return ActionChoice.Discard(
-            rec.Discard,
-            $"beginner-coach: shanten={rec.ShantenAfter} ukeire={rec.LiveUkeire} " +
-            $"safety={rec.Safety} defense={rec.DefenseMode}");
     }
 
     /// <summary>On HookFailed clear the FSM context — otherwise the 3 s retry debounce keeps the bot stranded on a missed click.</summary>
