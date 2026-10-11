@@ -254,7 +254,7 @@ public class HeuristicCallPolicyTests
         var openPon = Meld.Pon(Tile.FromId(9), Tile.FromId(9), fromSeat: 1); // 1p pon
         var s = StateSnapshot.Empty with
         {
-            Hand = Tiles.Parse("12m345m667m9m1z"),
+            Hand = Tiles.Parse("12m44m77m99m1z2z"),
             OurMelds = [openPon],
             Seats =
             [
