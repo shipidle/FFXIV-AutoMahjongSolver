@@ -18,14 +18,13 @@ public class EfficiencyPolicyTests
     }
 
     [Fact]
-    public void Tsumo_declined_when_doman_min_han_not_met()
+    public void Tsumo_accepted_when_doman_hand_has_one_yaku()
     {
-        // Issue #51: yakuless complete shape under Doman MinHan=2.
+        // Doman requires at least one yaku, not two han. Menzen tsumo itself is 1 han.
         var doman = new EfficiencyPolicy(new DomanRuleSet());
         var s = Snapshots.Closed14("22666p123345s222z", ActionFlags.Tsumo | ActionFlags.Discard);
         var choice = doman.Choose(s);
-        Assert.NotEqual(ActionKind.Tsumo, choice.Kind);
-        Assert.Equal(ActionKind.Discard, choice.Kind);
+        Assert.Equal(ActionKind.Tsumo, choice.Kind);
     }
 
     [Fact]
