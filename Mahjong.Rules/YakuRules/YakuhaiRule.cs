@@ -39,7 +39,7 @@ public sealed class YakuhaiRule : IYakuRule
 
     private static void AddWindHits(Tile anchor, WinContext ctx, List<YakuHit> hits)
     {
-        if (!anchor.IsWind)
+        if (!anchor.IsWind || !ctx.WindInfoKnown)
             return;
         if (anchor.Id == ctx.RoundWindTileId)
             hits.Add(new YakuHit(Mahjong.Core.Yaku.YakuhaiRound, 1));
