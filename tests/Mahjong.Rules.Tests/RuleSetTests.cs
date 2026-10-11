@@ -30,6 +30,12 @@ public class RuleSetTests
     }
 
     [Fact]
+    public void Doman_allows_red_dora()
+    {
+        Assert.True(new DomanRuleSet().AllowsRedDora);
+    }
+
+    [Fact]
     public void Doman_inherits_riichi_yaku_list()
     {
         var riichi = new RiichiRuleSet();
