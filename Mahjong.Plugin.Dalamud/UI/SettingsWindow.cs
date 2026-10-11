@@ -44,6 +44,12 @@ public sealed class SettingsWindow : Window, IDisposable
         _ => "일반",
     };
 
+    private static string DoraDisplayLabel(DoraIndicatorDisplayMode mode) => mode switch
+    {
+        DoraIndicatorDisplayMode.Traditional => "전통식 — 표시 다음 패가 도라",
+        _ => "도마식 — 표시된 패 자체가 도라",
+    };
+
     private void DrawHighlightPreview(Configuration cfg)
     {
         // Radio above the preview to flip which color is being shown.
@@ -220,6 +226,24 @@ public sealed class SettingsWindow : Window, IDisposable
                 ImGui.EndCombo();
             }
             Theme.Subtle("왕초보: 쉬운 한국어 설명 + 별도 추천기 / 일반: 기존 추천 / 상세: 기존 수치와 상위 후보 표시.");
+
+            ImGui.Dummy(new Vector2(0, 4));
+
+            var doraDisplay = cfg.DoraIndicatorDisplayMode;
+            ImGui.SetNextItemWidth(300);
+            if (ImGui.BeginCombo("도라 표시패 설정", DoraDisplayLabel(doraDisplay)))
+            {
+                foreach (var opt in new[] { DoraIndicatorDisplayMode.Doman, DoraIndicatorDisplayMode.Traditional })
+                {
+                    bool selected = opt == doraDisplay;
+                    if (ImGui.Selectable(DoraDisplayLabel(opt), selected) && opt != doraDisplay)
+                        plugin.ConfigService.Update(c => c with { DoraIndicatorDisplayMode = opt });
+                    if (selected)
+                        ImGui.SetItemDefaultFocus();
+                }
+                ImGui.EndCombo();
+            }
+            Theme.Subtle("게임의 골드 소서 > 마작 > 도라 표시패 설정과 똑같이 맞춰야 추천이 정확함.");
 
             ImGui.Dummy(new Vector2(0, 4));
 
