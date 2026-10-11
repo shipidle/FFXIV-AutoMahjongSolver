@@ -8,12 +8,18 @@ namespace Mahjong.Rules.Rulesets;
 public sealed class DomanRuleSet : IRuleSet
 {
     private readonly RiichiRuleSet riichi = new();
+    private readonly IDoraRule doraRule;
+
+    public DomanRuleSet(IDoraRule? doraRule = null)
+    {
+        this.doraRule = doraRule ?? new StandardDoraRule();
+    }
 
     public string Name => "Doman";
 
     public IReadOnlyList<IYakuRule> YakuRules => riichi.YakuRules;
     public IScoringRule ScoringRule => riichi.ScoringRule;
-    public IDoraRule DoraRule => riichi.DoraRule;
+    public IDoraRule DoraRule => doraRule;
     public IFuRule FuRule => riichi.FuRule;
 
     public bool AllowsRedDora => true;
