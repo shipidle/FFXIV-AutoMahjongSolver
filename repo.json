@@ -1,12 +1,12 @@
 [
   {
-    "Author": "XeldarAlz",
-    "Name": "Doman Mahjong Solver",
-    "InternalName": "Mahjong.Plugin.Dalamud",
+    "Author": "shipidle (personal fork)",
+    "Name": "Doman Mahjong Solver - Personal KO",
+    "InternalName": "Mahjong.Plugin.Dalamud.PersonalKO",
     "AssemblyVersion": "0.1.2.3",
     "TestingAssemblyVersion": "0.1.2.3",
     "IsTestingExclusive": false,
-    "RepoUrl": "https://github.com/XeldarAlz/FFXIV-DomanMahjongSolver",
+    "RepoUrl": "https://github.com/shipidle/FFXIV-AutoMahjongSolver",
     "ApplicableVersion": "any",
     "DalamudApiLevel": 15,
     "TestingDalamudApiLevel": 15,
@@ -15,26 +15,27 @@
       "mahjong",
       "doman",
       "gold-saucer",
-      "ai",
-      "automation"
+      "beginner",
+      "personal",
+      "suggestions"
     ],
     "CategoryTags": [
       "Utility"
     ],
-    "IconUrl": "https://raw.githubusercontent.com/XeldarAlz/FFXIV-DomanMahjongSolver/main/Mahjong.Plugin.Dalamud/Images/Icon.png",
-    "Punchline": "Doman Mahjong, solved for you.",
-    "Description": "Reads your Doman Mahjong hand and either suggests the best discard or plays the match for you.",
-    "Changelog": "v0.1.2.3: Fix the in-game suggestion highlight after a call. Once you called pon, chi, or kan, the highlight could jump to the wall along the top of the board or land on the wrong tile, because it located your hand by geometry and the shrunken hand let the perfectly-aligned wall slots win. It now anchors to the bottom-most row (your hand is always at the bottom) and ignores melded tiles, so the outline stays on the suggested discard. The hand reading and suggestion were always correct; only the on-tile outline was affected.",
-    "DownloadCount": 1836,
-    "DownloadLinkInstall": "https://github.com/XeldarAlz/FFXIV-DomanMahjongSolver/releases/latest/download/latest.zip",
-    "DownloadLinkTesting": "https://github.com/XeldarAlz/FFXIV-DomanMahjongSolver/releases/latest/download/latest.zip",
-    "DownloadLinkUpdate": "https://github.com/XeldarAlz/FFXIV-DomanMahjongSolver/releases/latest/download/latest.zip",
+    "IconUrl": "https://raw.githubusercontent.com/shipidle/FFXIV-AutoMahjongSolver/personal-ko/Mahjong.Plugin.Dalamud/Images/Icon.png",
+    "Punchline": "개인용 왕초보 코치 빌드.",
+    "Description": "Personal Korean beginner-coach fork of Doman Mahjong Solver. Adds explainable discard guidance, call advice, defensive hints, and Doman rule fixes.",
+    "Changelog": "Personal KO build: beginner coach, safer discard priorities, defensive hints, Doman rule corrections, aka-dora preservation, and isolated personal metadata.",
+    "DownloadCount": 0,
+    "DownloadLinkInstall": "https://github.com/shipidle/FFXIV-AutoMahjongSolver",
+    "DownloadLinkTesting": "https://github.com/shipidle/FFXIV-AutoMahjongSolver",
+    "DownloadLinkUpdate": "https://github.com/shipidle/FFXIV-AutoMahjongSolver",
     "LoadRequiredState": 0,
     "LoadSync": false,
     "CanUnloadAsync": false,
     "LoadPriority": 0,
     "ImageUrls": [],
-    "AcceptsFeedback": true,
+    "AcceptsFeedback": false,
     "LastUpdate": "1779882403"
   }
 ]
