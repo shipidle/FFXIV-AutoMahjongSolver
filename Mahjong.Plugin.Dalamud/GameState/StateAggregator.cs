@@ -122,16 +122,24 @@ public sealed class StateAggregator : IDisposable
             { LastScored = DiscardScorer.Score(snap, doraRule: doraRule); }
             catch (Exception ex)
             { LastScorerError = ex.Message; }
-
-            try
-            { LastBeginner = BeginnerDiscardAdvisor.Recommend(
-                snap, reader.GetClosedRedFiveTileIds(), doraRule); }
-            catch { }
         }
 
         try
         { LastChoice = policy.Choose(snap); }
         catch { }
+
+        if (snap.Legal.Can(ActionFlags.Discard) && LastChoice?.DiscardTile is { } chosenDiscard)
+        {
+            try
+            {
+                LastBeginner = BeginnerDiscardAdvisor.AnalyzeDiscard(
+                    snap,
+                    chosenDiscard,
+                    reader.GetClosedRedFiveTileIds(),
+                    doraRule);
+            }
+            catch { }
+        }
     }
 
     /// <summary>Content fingerprint; record equality reference-checks list fields and reports false on every fresh snapshot.</summary>
