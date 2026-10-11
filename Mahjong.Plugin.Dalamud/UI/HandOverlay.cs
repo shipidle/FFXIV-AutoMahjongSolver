@@ -7,6 +7,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using Mahjong.Engine;
 using Mahjong.Plugin.Dalamud.Actions;
 using Mahjong.Plugin.Dalamud.GameState;
+using Mahjong.Plugin.Dalamud.GameState.Variants;
 using Mahjong.Policy;
 using Mahjong.Policy.Efficiency;
 
@@ -82,7 +83,7 @@ public sealed class HandOverlay : IDisposable
         if (snap is null || snap.Hand.Count < 2)
             return;
 
-        var rects = PickHandRowFromCandidates(candidates, snap.Hand.Count);
+        var rects = PickHandRowFromCandidates(candidates, snap.Hand.Count, out bool rowConfident);
         if (rects is null)
             return;
 
@@ -90,15 +91,49 @@ public sealed class HandOverlay : IDisposable
         Tile? suggested = choice?.DiscardTile;
         if (suggested is null)
             return;
-        int slot = plugin.AddonReader.FindHandIndexOfTile(suggested.Value);
-        if (slot < 0)
-            slot = InputDispatcher.FindSlotOfTile(suggested.Value, snap.Hand);
-        if (slot < 0 || slot >= rects.Count)
+
+        int slot = -1;
+        bool mappingConfident = rowConfident;
+        var raw = plugin.AddonReader.DumpHandArrayRaw();
+        var layout = plugin.AddonReader.ActiveLayout;
+
+        if (raw is null || layout is null)
+        {
+            mappingConfident = false;
+        }
+        else
+        {
+            int textureBase = HandArrayDecoder.ResolveTextureBase(raw, layout.TileTextureBase, out _);
+            bool detachedDraw = IsLastVisualTileDetached(rects);
+
+            // When a red and normal 5 of the same suit are integrated into the sorted row,
+            // their relative visual order is not exposed by the addon array. Do not guess.
+            if (!detachedDraw && HasMixedRedAndNormalFive(raw, textureBase, suggested.Value.Id))
+            {
+                mappingConfident = false;
+            }
+            else
+            {
+                slot = HandArrayDecoder.FindRenderedHandIndex(
+                    raw,
+                    textureBase,
+                    suggested.Value.Id,
+                    detachedDraw);
+
+                if (slot < 0 || slot >= rects.Count)
+                    mappingConfident = false;
+            }
+        }
+
+        if (!mappingConfident)
+        {
+            DrawFallbackHint(suggested.Value, rects, viewportOffset);
             return;
+        }
 
         var rect = rects[slot];
         rect.Pos += viewportOffset;
-        bool isDrawnTile = slot == snap.Hand.Count - 1;
+        bool isDrawnTile = IsLastVisualTileDetached(rects) && slot == rects.Count - 1;
 
         var color = (isDrawnTile ? cfg.HighlightColorTsumogiri : cfg.HighlightColorDiscard).ToVector3();
         float intensity = Math.Clamp(cfg.HighlightIntensity, 0.4f, 1.6f);
@@ -157,31 +192,209 @@ public sealed class HandOverlay : IDisposable
         return result;
     }
 
-    /// <summary>The player's hand sits at the bottom of the screen, so take the bottom-most (highest-Y) tight row of <paramref name="expected"/> tiles, then sort left-to-right. Picking the *tightest* row instead let the perfectly-aligned wall slots along the top win once a call shrank the hand below the wall's tile count (#53).</summary>
-    private static List<(Vector2 Pos, Vector2 Size)>? PickHandRowFromCandidates(List<(Vector2 Pos, Vector2 Size)> candidates, int expected)
+    /// <summary>
+    /// Finds the bottom-most tile row. Unlike the old sliding-window approach, this first
+    /// removes overlapping duplicate nodes and then requires the selected row to contain
+    /// exactly the expected number of concealed tiles. If the row is ambiguous, callers
+    /// must not guess a tile position.
+    /// </summary>
+    internal static List<(Vector2 Pos, Vector2 Size)>? PickHandRowFromCandidates(
+        List<(Vector2 Pos, Vector2 Size)> candidates,
+        int expected,
+        out bool confident)
     {
-        if (candidates.Count < expected)
+        confident = false;
+        if (expected <= 0 || candidates.Count < expected)
             return null;
 
-        candidates.Sort((a, b) => a.Pos.Y.CompareTo(b.Pos.Y));
+        var deduped = DeduplicateOverlappingRects(candidates);
+        if (deduped.Count < expected)
+            return null;
 
-        // Ascending Y, so the last window within MaxRowYSpread is the lowest on screen — the player's hand.
-        int bestStart = -1;
-        for (int i = 0; i + expected <= candidates.Count; i++)
+        deduped.Sort((a, b) => CenterY(a).CompareTo(CenterY(b)));
+
+        // Build Y-clusters, then inspect them from bottom to top. The player's concealed
+        // hand is the lowest row on screen after the meld subtree has been excluded.
+        var clusters = new List<List<(Vector2 Pos, Vector2 Size)>>();
+        foreach (var rect in deduped)
         {
-            float span = candidates[i + expected - 1].Pos.Y - candidates[i].Pos.Y;
-            if (span <= MaxRowYSpread)
-                bestStart = i;
+            float cy = CenterY(rect);
+            List<(Vector2 Pos, Vector2 Size)>? cluster = null;
+            for (int i = clusters.Count - 1; i >= 0; i--)
+            {
+                if (Math.Abs(CenterY(clusters[i][0]) - cy) <= MaxRowYSpread)
+                {
+                    cluster = clusters[i];
+                    break;
+                }
+            }
+
+            if (cluster is null)
+            {
+                cluster = new List<(Vector2 Pos, Vector2 Size)>();
+                clusters.Add(cluster);
+            }
+            cluster.Add(rect);
         }
 
-        if (bestStart < 0)
-            return null;
+        clusters.Sort((a, b) => CenterY(a[0]).CompareTo(CenterY(b[0])));
 
-        var selected = new List<(Vector2 Pos, Vector2 Size)>(expected);
-        for (int i = bestStart; i < bestStart + expected; i++)
-            selected.Add(candidates[i]);
-        selected.Sort((a, b) => a.Pos.X.CompareTo(b.Pos.X));
-        return selected;
+        for (int ci = clusters.Count - 1; ci >= 0; ci--)
+        {
+            var row = clusters[ci];
+            if (row.Count < expected)
+                continue;
+
+            row.Sort((a, b) => a.Pos.X.CompareTo(b.Pos.X));
+
+            if (row.Count == expected)
+            {
+                confident = true;
+                return row;
+            }
+
+            // More tile-shaped nodes than the concealed hand means geometry alone cannot
+            // prove which subset is the real hand. Return the row for text placement, but
+            // deliberately mark it untrusted so no specific tile is highlighted.
+            return row;
+        }
+
+        return null;
+    }
+
+    private static List<(Vector2 Pos, Vector2 Size)> DeduplicateOverlappingRects(
+        List<(Vector2 Pos, Vector2 Size)> candidates)
+    {
+        var ordered = new List<(Vector2 Pos, Vector2 Size)>(candidates);
+        ordered.Sort((a, b) => (b.Size.X * b.Size.Y).CompareTo(a.Size.X * a.Size.Y));
+
+        var kept = new List<(Vector2 Pos, Vector2 Size)>(ordered.Count);
+        foreach (var rect in ordered)
+        {
+            bool duplicate = false;
+            foreach (var existing in kept)
+            {
+                if (OverlapRatio(rect, existing) >= 0.80f)
+                {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate)
+                kept.Add(rect);
+        }
+        return kept;
+    }
+
+    private static float OverlapRatio(
+        (Vector2 Pos, Vector2 Size) a,
+        (Vector2 Pos, Vector2 Size) b)
+    {
+        float left = Math.Max(a.Pos.X, b.Pos.X);
+        float top = Math.Max(a.Pos.Y, b.Pos.Y);
+        float right = Math.Min(a.Pos.X + a.Size.X, b.Pos.X + b.Size.X);
+        float bottom = Math.Min(a.Pos.Y + a.Size.Y, b.Pos.Y + b.Size.Y);
+        if (right <= left || bottom <= top)
+            return 0f;
+
+        float intersection = (right - left) * (bottom - top);
+        float smaller = Math.Min(a.Size.X * a.Size.Y, b.Size.X * b.Size.Y);
+        return smaller <= 0f ? 0f : intersection / smaller;
+    }
+
+    private static float CenterY((Vector2 Pos, Vector2 Size) rect)
+        => rect.Pos.Y + rect.Size.Y * 0.5f;
+
+    internal static bool IsLastVisualTileDetached(List<(Vector2 Pos, Vector2 Size)> rects)
+    {
+        if (rects.Count < 2)
+            return false;
+
+        var gaps = new List<float>(rects.Count - 1);
+        for (int i = 0; i + 1 < rects.Count; i++)
+        {
+            float gap = rects[i + 1].Pos.X - (rects[i].Pos.X + rects[i].Size.X);
+            gaps.Add(Math.Max(0f, gap));
+        }
+
+        float lastGap = gaps[^1];
+        float medianWidth = Median(rects.ConvertAll(r => r.Size.X));
+
+        if (gaps.Count == 1)
+            return lastGap > Math.Max(8f, medianWidth * 0.18f);
+
+        var baselineGaps = gaps.GetRange(0, gaps.Count - 1);
+        float baseline = Median(baselineGaps);
+        float threshold = baseline + Math.Max(8f, medianWidth * 0.18f);
+        return lastGap > threshold;
+    }
+
+    private static float Median(List<float> values)
+    {
+        if (values.Count == 0)
+            return 0f;
+        values.Sort();
+        int mid = values.Count / 2;
+        return values.Count % 2 == 0
+            ? (values[mid - 1] + values[mid]) * 0.5f
+            : values[mid];
+    }
+
+    private static bool HasMixedRedAndNormalFive(
+        ReadOnlySpan<int> raw,
+        int textureBase,
+        int targetTileId)
+    {
+        if (targetTileId is not (4 or 13 or 22))
+            return false;
+
+        bool red = false;
+        bool normal = false;
+        for (int i = 0; i < raw.Length; i++)
+        {
+            int id = HandArrayDecoder.DecodeTileId(raw[i], textureBase, out bool isRed);
+            if (id != targetTileId)
+                continue;
+            red |= isRed;
+            normal |= !isRed;
+        }
+        return red && normal;
+    }
+
+    private static void DrawFallbackHint(
+        Tile tile,
+        List<(Vector2 Pos, Vector2 Size)> rects,
+        Vector2 viewportOffset)
+    {
+        var dl = ImGui.GetForegroundDrawList();
+        string label = $"DISCARD {tile.ShortName}";
+        Vector2 textSize = ImGui.CalcTextSize(label);
+
+        Vector2 center;
+        float topY;
+        if (rects.Count > 0)
+        {
+            float left = rects.Min(r => r.Pos.X);
+            float right = rects.Max(r => r.Pos.X + r.Size.X);
+            topY = rects.Min(r => r.Pos.Y);
+            center = new Vector2((left + right) * 0.5f, topY - 28f) + viewportOffset;
+        }
+        else
+        {
+            var vp = ImGui.GetMainViewport();
+            center = new Vector2(vp.Pos.X + vp.Size.X * 0.5f, vp.Pos.Y + vp.Size.Y * 0.78f);
+        }
+
+        var pad = new Vector2(10f, 5f);
+        var min = new Vector2(center.X - textSize.X * 0.5f - pad.X, center.Y - textSize.Y * 0.5f - pad.Y);
+        var max = new Vector2(center.X + textSize.X * 0.5f + pad.X, center.Y + textSize.Y * 0.5f + pad.Y);
+
+        dl.AddRectFilled(min, max, Theme.Pack(new Vector4(0.04f, 0.05f, 0.07f, 0.92f)), 6f);
+        dl.AddRect(min, max, Theme.Pack(Theme.Warn, 0.95f), 6f, ImDrawFlags.None, 2f);
+        dl.AddText(
+            new Vector2(center.X - textSize.X * 0.5f, center.Y - textSize.Y * 0.5f),
+            Theme.Pack(Theme.Warn),
+            label);
     }
 
     /// <summary>True when <paramref name="id"/> is <paramref name="node"/> or any ancestor. Used to drop the meld subtree from the tile pool.</summary>
