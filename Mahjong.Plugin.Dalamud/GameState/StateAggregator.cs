@@ -23,6 +23,9 @@ public sealed class StateAggregator : IDisposable
     /// <summary>Policy verdict for <see cref="Latest"/>; null when Legal=None or on policy throw.</summary>
     public ActionChoice? LastChoice { get; private set; }
 
+    /// <summary>Explainable beginner discard recommendation for <see cref="Latest"/>.</summary>
+    public BeginnerDiscardRecommendation? LastBeginner { get; private set; }
+
     /// <summary>Scorer exception message, paired with <see cref="LastScored"/>=null.</summary>
     public string? LastScorerError { get; private set; }
 
@@ -73,6 +76,7 @@ public sealed class StateAggregator : IDisposable
                 Latest = null;
                 LastScored = null;
                 LastChoice = null;
+                LastBeginner = null;
                 LastScorerError = null;
                 hasContentHash = false;
             }
@@ -96,6 +100,7 @@ public sealed class StateAggregator : IDisposable
     {
         LastScored = null;
         LastChoice = null;
+        LastBeginner = null;
         LastScorerError = null;
 
         if (policy is null)
@@ -109,6 +114,10 @@ public sealed class StateAggregator : IDisposable
             { LastScored = DiscardScorer.Score(snap); }
             catch (Exception ex)
             { LastScorerError = ex.Message; }
+
+            try
+            { LastBeginner = BeginnerDiscardAdvisor.Recommend(snap); }
+            catch { }
         }
 
         try
