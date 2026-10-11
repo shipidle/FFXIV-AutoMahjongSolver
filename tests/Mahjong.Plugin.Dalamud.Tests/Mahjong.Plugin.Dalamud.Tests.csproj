@@ -17,6 +17,9 @@
   -->
 
   <PropertyGroup>
+    <!-- Personal fork CI only: keep compatibility with the KR-runtime String8 name
+         while the latest Dalamud dev SDK marks it obsolete. -->
+    <NoWarn>$(NoWarn);CS0618</NoWarn>
     <TargetFramework>net10.0-windows7.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
