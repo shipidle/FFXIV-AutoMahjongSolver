@@ -284,6 +284,78 @@ public class HeuristicCallPolicyTests
     }
 
     [Fact]
+    public void Existing_dragon_pon_keeps_yaku_path_for_later_chi()
+    {
+        var white = Tile.FromId(TileIds.FirstDragon);
+        var s = StateSnapshot.Empty with
+        {
+            Hand = Tiles.Parse("23m456p789s11z"),
+            OurMelds = [Meld.Pon(white, white, fromSeat: 1)],
+            Seats =
+            [
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+            ],
+            SeatInfoKnown = false,
+            Legal = new LegalActions(
+                Flags: ActionFlags.Chi | ActionFlags.Pass,
+                DiscardableTiles: [],
+                PonCandidates: [],
+                ChiCandidates:
+                [
+                    new MeldCandidate(
+                        MeldKind.Chi,
+                        Tile.FromId(0), // 1m claimed; 2m3m from hand
+                        [Tile.FromId(1), Tile.FromId(2)],
+                        FromSeat: 3)
+                ],
+                KanCandidates: []),
+        };
+
+        var d = new HeuristicCallPolicy(new DomanRuleSet()).Evaluate(s);
+
+        Assert.True(d.Accept,
+            $"existing white-dragon pon should guarantee a yaku path (got {d.Reason.Code}: {d.Reason.Display})");
+    }
+
+    [Fact]
+    public void Chi_123_is_not_misclassified_as_tanyao_when_claimed_tile_is_2()
+    {
+        var s = StateSnapshot.Empty with
+        {
+            Hand = Tiles.Parse("13m456p456s678s22p"),
+            Seats =
+            [
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+                new([], [], [], false, -1, false, false),
+            ],
+            SeatInfoKnown = false,
+            Legal = new LegalActions(
+                Flags: ActionFlags.Chi | ActionFlags.Pass,
+                DiscardableTiles: [],
+                PonCandidates: [],
+                ChiCandidates:
+                [
+                    new MeldCandidate(
+                        MeldKind.Chi,
+                        Tile.FromId(1), // 2m claimed; 1m3m from hand => 123m contains terminal
+                        [Tile.FromId(0), Tile.FromId(2)],
+                        FromSeat: 3)
+                ],
+                KanCandidates: []),
+        };
+
+        var d = new HeuristicCallPolicy(new DomanRuleSet()).Evaluate(s);
+
+        Assert.False(d.Accept,
+            $"123m chi must not be accepted on a fake tanyao path (got {d.Reason.Code}: {d.Reason.Display})");
+    }
+
+    [Fact]
     public void Accepts_chi_that_unlocks_ittsu()
     {
         // chi(123m claiming 1m) + closed 456m + 789m → post-call ittsu in m-suit is
