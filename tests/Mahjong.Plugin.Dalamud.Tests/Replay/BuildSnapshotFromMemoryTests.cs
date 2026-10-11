@@ -185,6 +185,45 @@ public class BuildSnapshotFromMemoryTests
     }
 
     [Fact]
+    public void Hand_settlement_clears_inferred_riichi_before_next_hand()
+    {
+        var (variant, ctx) = MakeVariant(EmjProfile);
+
+        var before = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 25000, 25000, 25000)
+            .WithDiscardCounts(0, 1, 0, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        variant.BuildSnapshotFromMemory(
+            before, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        var declared = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(25000, 24000, 25000, 25000)
+            .WithDiscardCounts(0, 2, 0, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        var snapRiichi = variant.BuildSnapshotFromMemory(
+            declared, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snapRiichi);
+        Assert.True(snapRiichi!.Seats[1].Riichi);
+
+        // Result settlement: scores move between players / the riichi stick is awarded.
+        // This is not another -1000 table-total deposit, so hand-scoped riichi must clear
+        // immediately even before discard counters visibly reset.
+        var settlement = new AddonMemoryBuilder(EmjProfile)
+            .WithScores(26000, 24000, 25000, 25000)
+            .WithDiscardCounts(0, 2, 0, 0)
+            .WithHand("1234m456p789s1234z")
+            .Build();
+        var snapSettlement = variant.BuildSnapshotFromMemory(
+            settlement, [AtkValueRecord.OfInt(30)], ctx, callModalVisible: false);
+
+        Assert.NotNull(snapSettlement);
+        Assert.False(snapSettlement!.Seats[1].Riichi);
+    }
+
+    [Fact]
     public void Per_seat_discard_count_drop_resets_riichi_even_if_total_discards_are_higher()
     {
         var (variant, ctx) = MakeVariant(EmjProfile);
