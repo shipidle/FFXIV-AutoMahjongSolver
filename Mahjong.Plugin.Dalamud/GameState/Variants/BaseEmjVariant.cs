@@ -41,12 +41,15 @@ internal sealed class BaseEmjVariant : IEmjVariant
     private int lastLoggedCallPromptState = -1;
     private int lastLoggedMeldHandCount = -1;
 
-    // The addon layout does not expose a riichi flag yet. During a hand, the only normal
-    // score mutation is the 1,000-point riichi deposit, so track exact -1000 deltas.
-    // This cannot recover a declaration made before the plugin attached mid-hand.
+    // The addon layout does not expose a riichi flag yet. Infer it conservatively from
+    // BOTH the 1,000-point deposit and that same seat adding a discard. A score delta by
+    // itself is not enough because end-of-hand settlement can also move a player by 1,000.
+    // This intentionally prefers a missed riichi over a false defensive warning.
     private readonly bool[] inferredRiichi = new bool[4];
     private readonly int[] inferredRiichiDiscardIndex = [-1, -1, -1, -1];
+    private readonly bool[] pendingRiichiDeposit = new bool[4];
     private int[]? lastRiichiScores;
+    private int[]? lastRiichiDiscardCounts;
     private int lastRiichiTotalDiscards = -1;
 
     public unsafe bool Probe(AtkUnitBase* unit)
@@ -259,32 +262,75 @@ internal sealed class BaseEmjVariant : IEmjVariant
         for (int i = 0; i < discardCounts.Length; i++)
             totalDiscards += discardCounts[i];
 
+        bool anySeatCountDropped = false;
+        if (lastRiichiDiscardCounts is not null)
+        {
+            for (int seat = 0; seat < Math.Min(discardCounts.Length, lastRiichiDiscardCounts.Length); seat++)
+            {
+                if (discardCounts[seat] < lastRiichiDiscardCounts[seat])
+                {
+                    anySeatCountDropped = true;
+                    break;
+                }
+            }
+        }
+
         bool newHand =
-            lastRiichiTotalDiscards >= 0 &&
-            totalDiscards < lastRiichiTotalDiscards;
+            anySeatCountDropped ||
+            (lastRiichiTotalDiscards >= 0 && totalDiscards < lastRiichiTotalDiscards) ||
+            (lastRiichiTotalDiscards > 0 && totalDiscards == 0);
 
         if (newHand)
         {
             Array.Fill(inferredRiichi, false);
             Array.Fill(inferredRiichiDiscardIndex, -1);
+            Array.Fill(pendingRiichiDeposit, false);
+
+            // Do not compare the first snapshot of a new hand against the previous hand's
+            // settlement scores. That is exactly how stale riichi state can leak forward.
+            lastRiichiScores = [.. scores];
+            lastRiichiDiscardCounts = [.. discardCounts];
+            lastRiichiTotalDiscards = totalDiscards;
+            return;
         }
 
-        if (lastRiichiScores is not null && !newHand)
+        if (lastRiichiScores is not null && lastRiichiDiscardCounts is not null)
         {
-            for (int seat = 0; seat < Math.Min(scores.Length, lastRiichiScores.Length); seat++)
+            int seats = Math.Min(
+                Math.Min(scores.Length, lastRiichiScores.Length),
+                Math.Min(discardCounts.Length, lastRiichiDiscardCounts.Length));
+
+            for (int seat = 0; seat < seats; seat++)
             {
                 if (inferredRiichi[seat])
                     continue;
 
-                if (lastRiichiScores[seat] - scores[seat] == 1000)
+                int scoreDrop = lastRiichiScores[seat] - scores[seat];
+                int discardDelta = discardCounts[seat] - lastRiichiDiscardCounts[seat];
+
+                // Score deposit may appear one snapshot before the declaration discard.
+                if (scoreDrop == 1000)
+                    pendingRiichiDeposit[seat] = true;
+
+                // Only confirm riichi when the same player actually adds exactly one discard.
+                // This rejects hand-end +/-1000 settlements with no declaration discard.
+                if (pendingRiichiDeposit[seat] && discardDelta == 1)
                 {
                     inferredRiichi[seat] = true;
                     inferredRiichiDiscardIndex[seat] = Math.Max(0, discardCounts[seat] - 1);
+                    pendingRiichiDeposit[seat] = false;
+                    continue;
                 }
+
+                // If play has moved on by more than one discard from this seat, the pending
+                // deposit was not a matching declaration and should not linger forever.
+                if (pendingRiichiDeposit[seat] && discardDelta > 1)
+                    pendingRiichiDeposit[seat] = false;
             }
         }
 
         lastRiichiScores = [.. scores];
+        lastRiichiDiscardCounts = [.. discardCounts];
         lastRiichiTotalDiscards = totalDiscards;
     }
 
