@@ -1,4 +1,6 @@
 using Mahjong.Engine;
+using Mahjong.Rules;
+using Mahjong.Rules.Scoring;
 
 namespace Mahjong.Policy.Efficiency;
 
@@ -9,10 +11,12 @@ public static class DiscardScorer
         DiscardWeights? weights = null,
         Wall? wall = null,
         PlacementMultipliers? placement = null,
-        IOpponentModel? opponentModel = null)
+        IOpponentModel? opponentModel = null,
+        IDoraRule? doraRule = null)
     {
         var w = weights ?? DiscardWeights.Default;
         var p = placement ?? PlacementMultipliers.Neutral;
+        doraRule ??= new StandardDoraRule();
 
         var hand = BuildHand(state);
         if (hand.ClosedTileCount + hand.OpenMelds.Count * 3 != 14)
@@ -25,7 +29,7 @@ public static class DiscardScorer
         for (int i = 0; i < ukeire.Length; i++)
         {
             var u = ukeire[i];
-            int doraRetained = CountDora(hand, u.Discard, state.DoraIndicators);
+            int doraRetained = CountDora(hand, u.Discard, state.DoraIndicators, doraRule);
             int yakuhaiRetained = CountYakuhai(hand, u.Discard, 27 + state.RoundWind, state);
             double yakuPotential = YakuPotential.Score(hand, u.Discard, state);
 
@@ -67,7 +71,11 @@ public static class DiscardScorer
         return new Hand(counts, state.OurMelds);
     }
 
-    private static int CountDora(Hand hand, Tile removed, IReadOnlyList<Tile> indicators)
+    private static int CountDora(
+        Hand hand,
+        Tile removed,
+        IReadOnlyList<Tile> indicators,
+        IDoraRule doraRule)
     {
         if (indicators.Count == 0)
             return 0;
@@ -78,25 +86,15 @@ public static class DiscardScorer
             if (count <= 0)
                 continue;
             foreach (var ind in indicators)
-                if (DoraNext(ind) == id)
+                if (doraRule.Next(ind).Id == id)
                     total += count;
         }
         foreach (var m in hand.OpenMelds)
             foreach (var t in m.Tiles)
                 foreach (var ind in indicators)
-                    if (DoraNext(ind) == t.Id)
+                    if (doraRule.Next(ind).Id == t.Id)
                         total++;
         return total;
-    }
-
-    private static int DoraNext(Tile indicator)
-    {
-        int id = indicator.Id;
-        if (id < 27)
-            return (id / 9) * 9 + (id % 9 + 1) % 9;
-        if (id <= 30)
-            return 27 + (id - 27 + 1) % 4;
-        return 31 + (id - 31 + 1) % 3;
     }
 
     private static int CountYakuhai(Hand hand, Tile removed, int roundWindTileId, StateSnapshot state)
