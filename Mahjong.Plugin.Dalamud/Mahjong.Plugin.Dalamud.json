@@ -1,17 +1,17 @@
 {
-    "Author": "XeldarAlz",
-    "Name": "Doman Mahjong Solver",
-    "Punchline": "Doman Mahjong, solved for you.",
-    "Description": "Reads your Doman Mahjong hand and either suggests the best discard or plays the match for you.",
+    "Author": "shipidle (personal fork)",
+    "Name": "Doman Mahjong Solver - Personal KO",
+    "Punchline": "개인용 왕초보 코치 빌드.",
+    "Description": "Personal Korean beginner-coach fork of Doman Mahjong Solver. Adds explainable discard guidance, call advice, defensive hints, and Doman rule fixes.",
     "ApplicableVersion": "any",
-    "RepoUrl": "https://github.com/XeldarAlz/FFXIV-DomanMahjongSolver",
-    "IconUrl": "https://raw.githubusercontent.com/XeldarAlz/FFXIV-DomanMahjongSolver/main/Mahjong.Plugin.Dalamud/Images/Icon.png",
+    "RepoUrl": "https://github.com/shipidle/FFXIV-AutoMahjongSolver",
+    "IconUrl": "https://raw.githubusercontent.com/shipidle/FFXIV-AutoMahjongSolver/personal-ko/Mahjong.Plugin.Dalamud/Images/Icon.png",
     "Tags": [
         "mahjong",
         "doman",
         "gold-saucer",
-        "ai",
-        "automation",
+        "beginner",
+        "personal",
         "suggestions"
     ]
 }
